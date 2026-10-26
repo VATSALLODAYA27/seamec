@@ -8,6 +8,8 @@
   --edge: #e3e7ef;
   --page: #f4f5f9;
   --ink: #0f172a;
+  --scroll-thumb: rgba(15, 23, 42, 0.18);
+  --scroll-thumb-hover: rgba(15, 23, 42, 0.32);
 }
 
 [data-mode='dark'] {
@@ -19,6 +21,8 @@
   --edge: #2a2e37;
   --page: #0b0c10;
   --ink: #e5e7eb;
+  --scroll-thumb: rgba(255, 255, 255, 0.14);
+  --scroll-thumb-hover: rgba(255, 255, 255, 0.28);
 }
 
 body {
@@ -26,6 +30,53 @@ body {
   background: var(--page);
   color: var(--ink);
   font-family: Inter, 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ---- Scroll bars: thin and in the theme's colours, instead of the browser's default ---- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+/* Safari and older Chrome use these instead */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--scroll-thumb);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-thumb-hover);
+  background-clip: padding-box;
+}
+
+/* The left menu: no bar until the pointer is over it, then a faint white one on the navy */
+.side-menu {
+  scrollbar-color: transparent transparent;
+}
+
+.side-menu:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+.side-menu::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.side-menu:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  background-clip: padding-box;
 }
 
 .muted {
