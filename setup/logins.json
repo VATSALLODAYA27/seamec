@@ -1,0 +1,6 @@
+[
+  {"username": "admin", "name": "Administrator", "role": "admin", "password": "Seamec@Admin26"},
+  {"username": "ops", "name": "R. Menon", "role": "ops", "password": "dsv-ops-2026"},
+  {"username": "manager", "name": "K. Iyer", "role": "manager", "password": "fleet-mgr-2026"},
+  {"username": "woc.rep", "name": "P. Raghavan", "role": "client", "client_name": "Western Offshore Oil Corp (demo)", "password": "client-rep-2026"}
+]

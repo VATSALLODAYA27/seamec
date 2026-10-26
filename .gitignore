@@ -1,0 +1,10 @@
+# Secrets and local data: never shared
+backend/.env
+backend/var/
+
+# Installed and built files
+backend/.venv/
+**/__pycache__/
+.pytest_cache/
+frontend/node_modules/
+frontend/dist/
