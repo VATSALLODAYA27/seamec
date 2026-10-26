@@ -428,6 +428,7 @@ export interface PlanRow {
   reliefs_30d: number
   events: PlanEvent[]
   suggestion: string | null
+  suggestion_level: 'urgent' | 'clash' | 'tip' | 'idle' | 'info' | null
 }
 
 export const useMaintenance = (vessel?: string) =>

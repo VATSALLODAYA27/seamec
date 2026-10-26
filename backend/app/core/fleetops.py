@@ -217,25 +217,26 @@ def planner(session: Session, horizon_days: int = 365) -> list[dict]:
         reliefs = session.scalars(select(Assignment).where(Assignment.vessel_id == v.vessel_id, Assignment.signed_off.is_(None),
                                                            Assignment.relief_due <= (today + timedelta(days=30)).isoformat())).all()
         # Suggestion: the clash that matters most first.
-        suggestion = None
+        suggestion, level = None, None  # level: urgent, clash, tip, idle, info (drives the colour on the page)
         first_free = min(idle_days) if idle_days else None
         if v.status == "DRY_DOCK":
-            suggestion = "In dry dock now: record the bottom survey date when it is done, then line up the next charter."
+            suggestion, level = "In dry dock now: record the bottom survey date when it is done, then line up the next charter.", "info"
         elif hull["days_left"] is not None and hull["days_left"] < 0:
-            suggestion = f"Bottom survey overdue since {hull['due_by']}: dock now or agree an in-water survey with class."
+            suggestion, level = f"Bottom survey overdue since {hull['due_by']}: dock now or agree an in-water survey with class.", "urgent"
         elif hull["due_by"] and any(c.start_date <= hull["due_by"] <= c.end_date for c in mine):
             c = next(c for c in mine if c.start_date <= hull["due_by"] <= c.end_date)
             suggestion = (f"Bottom survey falls due on {hull['due_by']}, during contract {c.contract_no}. "
                           "Plan a docking break with the client, or an in-water survey if class accepts it.")
+            level = "clash"
         elif hull["due_by"] and first_free and first_free.isoformat() <= hull["due_by"] and hull["days_left"] <= 365:
-            suggestion = f"Free from {first_free.isoformat()}, before the bottom survey is due ({hull['due_by']}): a good window to dry dock."
+            suggestion, level = f"Free from {first_free.isoformat()}, before the bottom survey is due ({hull['due_by']}): a good window to dry dock.", "tip"
         elif idle_days and len(idle_days) >= 30 and v.status != "DRY_DOCK":
-            suggestion = f"No contract for {len(idle_days)} of the next 180 days from {first_free.isoformat()}: line up the next charter."
+            suggestion, level = f"No contract for {len(idle_days)} of the next 180 days from {first_free.isoformat()}: line up the next charter.", "idle"
         out.append({
             "vessel_id": v.vessel_id, "name": v.name, "vessel_type": v.vessel_type, "status": v.status,
             "contract_end": mine[-1].end_date if mine else None,
             "idle_days_180": len(idle_days), "idle_cost_180": round(len(idle_days) * v.daily_opex, 2),
             "bottom_survey_due": hull["due_by"], "reliefs_30d": len(reliefs),
-            "events": sorted(events, key=lambda e: e["from"]), "suggestion": suggestion,
+            "events": sorted(events, key=lambda e: e["from"]), "suggestion": suggestion, "suggestion_level": level,
         })
     return out

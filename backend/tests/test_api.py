@@ -247,7 +247,7 @@ def test_crew_assignment_enforces_mlc_and_certificate_validity():
 def test_planner_flags_the_dry_dock_clash():
     plan = {p["vessel_id"]: p for p in client_as("ops").get("/api/planner").json()}
     assert "during contract WOC/DSV/2026/022" in plan["SM-PALADIN"]["suggestion"]
-    assert plan["SM-III"]["suggestion"].startswith("In dry dock now")
+    assert plan["SM-III"]["suggestion"].startswith("In dry dock now") and plan["SM-PALADIN"]["suggestion_level"] == "clash"
     assert plan["SM-AGASTYA"]["idle_days_180"] == 180
 
 

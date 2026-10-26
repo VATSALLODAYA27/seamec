@@ -364,66 +364,196 @@ body {
 
 /* ---- Planner ---- */
 
-.plan-row {
+.plan-summary {
   display: grid;
-  grid-template-columns: 230px 1fr;
-  gap: 4px 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.plan-tile {
+  display: flex;
   align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--edge);
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  background: var(--panel);
+  cursor: default;
 }
 
-.plan-head {
-  padding: 0 0 6px;
+.plan-tile b {
+  display: block;
+  font-size: 24px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
 }
 
-.plan-track {
-  position: relative;
-  height: 18px;
-  border-radius: 4px;
+.plan-tile-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 20px;
+}
+
+/* "What's coming": one sentence per thing to act on */
+
+.coming-idle {
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
   background: var(--soft);
+  font-size: 14px;
 }
 
-.plan-head .plan-track {
-  background: none;
-}
-
-.plan-head .plan-track span {
-  position: absolute;
-  font-size: 11px;
+.coming-group h3 {
+  margin: 18px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 
-.plan-bar {
-  position: absolute;
-  top: 3px;
-  height: 12px;
-  border-radius: 6px;
-  opacity: 0.85;
+.coming-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--edge);
+  border-left: 4px solid;
+  border-radius: 0 8px 8px 0;
+  background: var(--panel);
 }
 
-.plan-mark {
-  position: absolute;
-  top: -2px;
-  width: 6px;
-  height: 22px;
-  margin-left: -3px;
-  border-radius: 3px;
+.coming-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  font-size: 16px;
 }
 
-.plan-note {
-  grid-column: 2;
+.coming-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.coming-text > a {
+  font-weight: 600;
+}
+
+.coming-action {
+  flex: none;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* "Month by month": a calendar grid, one word per cell */
+
+.grid-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.grid-wrap {
+  overflow-x: auto;
+}
+
+.month-grid {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: separate;
+  border-spacing: 4px;
   font-size: 12px;
 }
 
-@media (max-width: 700px) {
-  .plan-row {
-    grid-template-columns: 1fr;
-  }
+.month-grid th {
+  font-weight: 500;
+  color: var(--muted);
+  text-align: center;
+}
 
-  .plan-note {
-    grid-column: 1;
-  }
+.month-grid .vessel-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 150px;
+  padding-right: 8px;
+  background: var(--panel);
+  text-align: left;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.cell {
+  position: relative;
+  display: block;
+  padding: 8px 4px;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.grid-legend .cell {
+  display: inline-block;
+  padding: 4px 10px;
+}
+
+.cell.work,
+.cell.start {
+  background: rgba(30, 142, 62, 0.16);
+  color: #1e8e3e;
+}
+
+.cell.idle {
+  border: 1px dashed var(--edge);
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.cell.end {
+  background: rgba(184, 110, 0, 0.16);
+  color: #b86e00;
+}
+
+.cell.dock {
+  background: rgba(198, 40, 40, 0.16);
+  color: #c62828;
+}
+
+[data-mode='dark'] .cell.work,
+[data-mode='dark'] .cell.start {
+  color: #4cc97f;
+}
+
+[data-mode='dark'] .cell.end {
+  color: #f0b340;
+}
+
+[data-mode='dark'] .cell.dock {
+  color: #ff7b72;
+}
+
+.cell-cert {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font-size: 10px;
+  color: #b86e00;
 }
 
 /* ---- Client portal ---- */
