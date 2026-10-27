@@ -1,4 +1,5 @@
-"""Load demo data: the fleet, certificates, contracts, 60 days of daily reports, past invoices and a few automatic positions.
+"""Load demo data: the fleet, certificates, contracts, 60 days of daily reports, past invoices, a few automatic positions,
+and (scripts/seed_business.py) the tenders, supply, port call, dry dock, insurance and finance records.
 
 What is real and what is not:
 - Vessel names, and the IMO numbers, MMSIs and flags below, are from public AIS ship directories (checked
@@ -19,6 +20,7 @@ from app.auth import make_hash
 from app.core.billing import month_hire
 from app.core.tracking import iso
 from app.db import Base, SessionLocal, engine, migrate
+from scripts.seed_business import seed_business
 from app.models import (Assignment, Certificate, Contract, CrewCertificate, CrewMember, DailyReport, Equipment, HireInvoice, MaintenanceJob,
                         ManningRequirement, PositionFix, Timesheet, User, Vessel)
 
@@ -383,6 +385,7 @@ def seed(session) -> None:
         lat, lon = FIELDS["SM-PALADIN"]
         session.add(PositionFix(vessel_id="SM-PALADIN", at=iso(now - timedelta(hours=i, minutes=7)), lat=round(lat + 0.01 * i, 4),
                                 lon=round(lon - 0.01 * i, 4), sog=1.2, cog=135.0, source="AIS"))
+    seed_business(session, rng)
     session.commit()
 
 

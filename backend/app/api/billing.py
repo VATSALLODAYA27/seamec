@@ -8,6 +8,7 @@ from ..core.billing import add_days, month_hire
 from ..db import get_session
 from ..models import Contract, DailyReport, HireInvoice, Timesheet, User, Vessel, as_dict
 from ..schemas import InvoiceDraftIn, PaymentIn
+from .commercial import straight_off
 from .fleet import days_left, get_or_404, today
 
 router = APIRouter(prefix="/api/invoices", tags=["billing"], dependencies=[Depends(staff)])
@@ -19,7 +20,7 @@ def tax_on(contract: Contract, amount: float) -> float:
 
 def calc_for(session: Session, contract: Contract, period: str) -> dict:
     reports = session.scalars(select(DailyReport).where(DailyReport.contract_no == contract.contract_no)).all()
-    return month_hire(contract, reports, period)
+    return month_hire(contract, reports, period, straight_off(session, contract.contract_no))
 
 
 def invoice_out(inv: HireInvoice, contract: Contract, vessel_name: str, sheet: Timesheet | None) -> dict:

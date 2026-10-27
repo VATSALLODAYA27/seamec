@@ -3,19 +3,9 @@ from datetime import date, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from app.db import SessionLocal, migrate
 from app.main import app
-from scripts.seed import seed, seed_users
 
 PASSWORDS = {"admin": "Seamec@Admin26", "ops": "dsv-ops-2026", "manager": "fleet-mgr-2026", "woc.rep": "client-rep-2026"}
-
-
-@pytest.fixture(scope="module", autouse=True)
-def data():
-    migrate()
-    with SessionLocal() as session:
-        seed_users(session)
-        seed(session)
 
 
 def client_as(username: str) -> TestClient:

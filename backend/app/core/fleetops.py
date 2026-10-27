@@ -9,6 +9,8 @@ The rules, and where they come from:
 - Crew certificate validity is whatever the certificate says; typical limits (STCW medical up to 2 years,
   IMCA D 014 diver medical up to 12 months) only shape the demo data.
 - HSSC: the outside of the bottom is inspected at least twice in 5 years, never more than 36 months apart.
+- ISM Code 10.3 also covers spares: a critical spare with none on board blocks hire; below its minimum is a warning.
+- Charter parties require the owner to keep hull and machinery and P&I cover in force for the whole charter.
 """
 from collections import Counter, defaultdict
 from datetime import date, timedelta
@@ -17,7 +19,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..api.fleet import INVALID, add_months, cert_out
-from ..models import Assignment, Certificate, Contract, CrewCertificate, CrewMember, Equipment, MaintenanceJob, ManningRequirement, Vessel
+from ..api.insurance import cover_gaps
+from ..models import (Assignment, Certificate, Contract, CrewCertificate, CrewMember, DryDockProject, Equipment, InsurancePolicy, MaintenanceJob,
+                      ManningRequirement, Vendor, Vessel, YardQuote)
+from .supply import critical_spares, waiting_by_job
 
 DUE_SOON_DAYS = 14
 MLC_MAX_MONTHS = 11
@@ -64,6 +69,7 @@ def maintenance(session: Session, vessel_id: str | None = None) -> list[dict]:
     jobs = session.scalars(select(MaintenanceJob).where(MaintenanceJob.equipment_id.in_(equipment))).all()
     since = (date.today() - timedelta(days=REPEAT_WINDOW_DAYS)).isoformat()
     recent_defects = Counter(j.equipment_id for j in jobs if j.kind == "DEFECT" and (j.raised_on or "") >= since)
+    waiting = waiting_by_job(session, [j.id for j in jobs])
     out = []
     for j in jobs:
         e = equipment[j.equipment_id]
@@ -73,6 +79,7 @@ def maintenance(session: Session, vessel_id: str | None = None) -> list[dict]:
             "interval_days": j.interval_days, "interval_hours": j.interval_hours, "last_done_on": j.last_done_on, "last_done_hours": j.last_done_hours,
             "raised_on": j.raised_on, "report_id": j.report_id, "downtime_hrs": j.downtime_hrs, "closed_on": j.closed_on, "note": j.note,
             "repeat_failure": recent_defects[e.id] >= REPEAT_FAILURES,
+            "awaiting_spares": waiting.get(j.id, []),  # the job is blocked until these arrive on board
             **job_status(j, e),
         })
     rank = {"OPEN": 0, "OVERDUE": 1, "DUE_SOON": 2, "OK": 3, "CLOSED": 4}
@@ -177,11 +184,23 @@ def readiness(session: Session, vessel: Vessel) -> dict:
           [f"{r['name']} ({r['rank']}): {a['text']}" for r in aboard for a in r["alerts"] if a["level"] == "WARN"])
 
     jobs = maintenance(session, vessel.vessel_id)
+
+    def awaiting(j):
+        return f", awaiting {', '.join(s['part'] for s in j['awaiting_spares'])}" if j["awaiting_spares"] else ""
+
     check("Critical equipment (ISM 10.3)",
-          [f"{j['equipment']}: {'open defect' if j['kind'] == 'DEFECT' else 'overdue: ' + j['title']}" for j in jobs
+          [f"{j['equipment']}: {'open defect' if j['kind'] == 'DEFECT' else 'overdue: ' + j['title']}{awaiting(j)}" for j in jobs
            if j["critical"] and j["state"] in ("OPEN", "OVERDUE")],
           [f"{j['equipment']}: {j['title']} due {j['due_on'] or ''}".strip() for j in jobs if j["critical"] and j["state"] == "DUE_SOON"]
           + [f"{j['equipment']}: repeat failures" for j in jobs if j["repeat_failure"] and j["state"] == "OPEN"])
+
+    spares = critical_spares(session, vessel.vessel_id)
+    check("Critical spares on board (ISM 10.3)",
+          [f"{s['part']} for {s['equipment']}: none on board (minimum {s['min_qty']:g})" for s in spares if s["qty"] <= 0],
+          [f"{s['part']} for {s['equipment']}: {s['qty']:g} of minimum {s['min_qty']:g}" for s in spares if s["qty"] > 0])
+
+    missing, lapsing = cover_gaps(session.scalars(select(InsurancePolicy)).all(), vessel.vessel_id)
+    check("Insurance (hull and machinery, P&I)", missing, lapsing)
 
     blocking = [c for c in checks if not c["ok"]]
     return {"vessel_id": vessel.vessel_id, "name": vessel.name, "ready": not blocking, "blocking": len(blocking),
@@ -197,6 +216,9 @@ def planner(session: Session, horizon_days: int = 365) -> list[dict]:
     today = date.today()
     end = today + timedelta(days=horizon_days)
     contracts = session.scalars(select(Contract).where(Contract.status == "ACTIVE", Contract.end_date >= today.isoformat())).all()
+    docks = {p.vessel_id: p for p in session.scalars(select(DryDockProject).where(DryDockProject.status != "COMPLETED"))}
+    yards = {q.id: v.name for q, v in session.execute(select(YardQuote, Vendor).join(Vendor, Vendor.id == YardQuote.vendor_id))}
+    policies = session.scalars(select(InsurancePolicy).where(InsurancePolicy.end_date >= today.isoformat(), InsurancePolicy.end_date <= end.isoformat())).all()
     out = []
     for v in session.scalars(select(Vessel).order_by(Vessel.vessel_type, Vessel.name)):
         mine = sorted((c for c in contracts if c.vessel_id == v.vessel_id), key=lambda c: c.start_date)
@@ -214,13 +236,21 @@ def planner(session: Session, horizon_days: int = 365) -> list[dict]:
         for c in session.scalars(select(Certificate).where(Certificate.vessel_id == v.vessel_id)):
             if c.expires_on <= end.isoformat():
                 events.append({"type": "CERT_EXPIRY", "label": f"{c.name} expires", "from": c.expires_on, "to": c.expires_on})
+        dock = docks.get(v.vessel_id)
+        if dock:
+            yard = yards.get(dock.yard_quote_id)
+            events.append({"type": "DRYDOCK", "label": f"Dry dock{' at ' + yard if yard else ' (yard not chosen yet)'}",
+                           "from": dock.actual_start or dock.planned_start, "to": dock.planned_end})
+        for p in policies:
+            if p.vessel_id == v.vessel_id:
+                events.append({"type": "INSURANCE_EXPIRY", "label": f"{p.kind} insurance ({p.insurer}) expires", "from": p.end_date, "to": p.end_date})
         reliefs = session.scalars(select(Assignment).where(Assignment.vessel_id == v.vessel_id, Assignment.signed_off.is_(None),
                                                            Assignment.relief_due <= (today + timedelta(days=30)).isoformat())).all()
         # Suggestion: the clash that matters most first.
         suggestion, level = None, None  # level: urgent, clash, tip, idle, info (drives the colour on the page)
         first_free = min(idle_days) if idle_days else None
         if v.status == "DRY_DOCK":
-            suggestion, level = "In dry dock now: record the bottom survey date when it is done, then line up the next charter.", "info"
+            suggestion, level = "In dry dock now: complete the dry dock project when she is out (that records the bottom survey), then line up the next charter.", "info"
         elif hull["days_left"] is not None and hull["days_left"] < 0:
             suggestion, level = f"Bottom survey overdue since {hull['due_by']}: dock now or agree an in-water survey with class.", "urgent"
         elif hull["due_by"] and any(c.start_date <= hull["due_by"] <= c.end_date for c in mine):
@@ -228,6 +258,8 @@ def planner(session: Session, horizon_days: int = 365) -> list[dict]:
             suggestion = (f"Bottom survey falls due on {hull['due_by']}, during contract {c.contract_no}. "
                           "Plan a docking break with the client, or an in-water survey if class accepts it.")
             level = "clash"
+        elif dock and dock.planned_start <= (hull["due_by"] or "9999") and v.status != "DRY_DOCK":
+            suggestion, level = f"Dry dock planned {dock.planned_start} to {dock.planned_end}, before the bottom survey falls due.", "info"
         elif hull["due_by"] and first_free and first_free.isoformat() <= hull["due_by"] and hull["days_left"] <= 365:
             suggestion, level = f"Free from {first_free.isoformat()}, before the bottom survey is due ({hull['due_by']}): a good window to dry dock.", "tip"
         elif idle_days and len(idle_days) >= 30 and v.status != "DRY_DOCK":

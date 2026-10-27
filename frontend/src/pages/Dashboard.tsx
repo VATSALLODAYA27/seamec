@@ -34,7 +34,7 @@ function VesselCard({ v }: { v: FleetRow }) {
               <span className="muted">Revenue</span>
               <span>{moneyShort(v.revenue_mtd)}</span>
               <span className="muted">Cost</span>
-              <span>{moneyShort(v.opex_mtd)}</span>
+              <span>{moneyShort(v.cost_mtd)}</span>
               <span className="muted">Profit</span>
               <Typography.Text strong type={v.pnl_mtd < 0 ? 'danger' : 'success'}>
                 {moneyShort(v.pnl_mtd)}
@@ -48,7 +48,7 @@ function VesselCard({ v }: { v: FleetRow }) {
           )}
         </>
       ) : (
-        <span className="muted">Idle cost this month {moneyShort(v.opex_mtd)}</span>
+        <span className="muted">Idle cost this month {moneyShort(v.cost_mtd)}</span>
       )}
     </Card>
   )
@@ -99,7 +99,22 @@ export default function Dashboard({ me }: { me: User }) {
             </Row>
 
             <Row gutter={[16, 16]}>
-              <Col xs={24} lg={12}>
+              <Col xs={24} lg={8}>
+                <Card title="Needs attention" style={{ height: '100%' }}>
+                  {d.attention.length ? (
+                    d.attention.map((a) => (
+                      <Link key={a.label} to={a.to} className="attention-row">
+                        <span className="attention-dot" style={{ background: a.level === 'error' ? STATUS.bad : a.level === 'warning' ? STATUS.warn : STATUS.info }} />
+                        <span style={{ flex: 1 }}>{a.label}</span>
+                        <b>{a.count}</b>
+                      </Link>
+                    ))
+                  ) : (
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Nothing waiting" />
+                  )}
+                </Card>
+              </Col>
+              <Col xs={24} lg={8}>
                 <Card title="Certificates needing action" extra={<Link to="/certificates">All</Link>} style={{ height: '100%' }}>
                   <List
                     size="small"
@@ -116,7 +131,7 @@ export default function Dashboard({ me }: { me: User }) {
                   />
                 </Card>
               </Col>
-              <Col xs={24} lg={12}>
+              <Col xs={24} lg={8}>
                 <Card title="Contracts ending in 90 days" extra={<Link to="/contracts">All</Link>} style={{ height: '100%' }}>
                   <List
                     size="small"

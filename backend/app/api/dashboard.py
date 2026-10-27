@@ -3,13 +3,18 @@ from collections import defaultdict
 from datetime import date
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import manager, staff
-from ..core.billing import add_days, month_hire
+from ..core.billing import add_days
+from ..core.finance import pnl
+from ..core.supply import critical_spares
 from ..db import get_session
-from ..models import AuditEntry, Certificate, Contract, DailyReport, HireInvoice, Vessel
+from ..models import (AuditEntry, Certificate, Contract, DailyReport, HireInvoice, InsurancePolicy, OffHireEvent, PerformanceClaim, PortCall,
+                      PurchaseOrder, SpareRequest, Tender, Vessel)
+from .insurance import cover_gaps
+from .insurance import expiring as insurance_expiring
 from .fleet import ATTENTION, INVALID, cert_out, days_left, today
 
 router = APIRouter(prefix="/api", tags=["dashboard"], dependencies=[Depends(staff)])
@@ -26,27 +31,21 @@ def dashboard(session: Session = Depends(get_session)):
     by_vessel = defaultdict(list)  # grouped once, instead of scanning every report for every vessel
     for r in reports:
         by_vessel[r.vessel_id].append(r)
+    money = {row["vessel_id"]: row for row in pnl(session, period, period)["vessels"]}  # the same figures as Finance
 
     rows = []
     for v in vessels:
         mine = by_vessel[v.vessel_id]
         contract = next((c for c in contracts if c.vessel_id == v.vessel_id and c.start_date <= now <= c.end_date), None)
-        revenue = 0.0
-        paid_hrs = 0.0
-        if contract:
-            calc = month_hire(contract, [r for r in mine if r.contract_no == contract.contract_no], period)
-            revenue = calc["amount"]
-            h = calc["hours"]
-            paid_hrs = h["operating"] + h["standby"] + h["breakdown_paid"]
+        m = money[v.vessel_id]
         last = max((r.on_date for r in mine), default=None)
         week = {add_days(now, -i) for i in range(1, 8)}
         missing = len(week - {r.on_date for r in mine}) if contract else 0
-        opex = v.daily_opex * elapsed
         rows.append({
             "vessel_id": v.vessel_id, "name": v.name, "vessel_type": v.vessel_type, "status": v.status,
             "client": contract.client if contract else None, "contract_no": contract.contract_no if contract else None,
-            "revenue_mtd": round(revenue, 2), "opex_mtd": round(opex, 2), "pnl_mtd": round(revenue - opex, 2),
-            "utilisation": round(100 * paid_hrs / (elapsed * 24), 1), "last_report": last, "missing_reports_7d": missing,
+            "revenue_mtd": m["revenue"], "cost_mtd": m["cost"], "pnl_mtd": m["profit"],
+            "utilisation": round(100 * m["paid_hours"] / (elapsed * 24), 1), "last_report": last, "missing_reports_7d": missing,
         })
 
     certs = [cert_out(c) for c in session.scalars(select(Certificate).order_by(Certificate.expires_on))]
@@ -81,7 +80,29 @@ def dashboard(session: Session = Depends(get_session)):
         "contracts_ending": [{"contract_no": c.contract_no, "vessel_name": names[c.vessel_id], "client": c.client, "end_date": c.end_date,
                               "days_left": days_left(c.end_date)} for c in ending],
         "bg_expiring": [{"contract_no": c.contract_no, "bg_amount": c.bg_amount, "bg_expiry": c.bg_expiry, "days_left": days_left(c.bg_expiry)} for c in bg_expiring],
+        "attention": attention(session, vessels),
     }
+
+
+def attention(session: Session, vessels: list[Vessel]) -> list[dict]:
+    """One line per thing waiting on someone, across the other modules. Only lines with something in them."""
+    now = today()
+    short = sum(len(critical_spares(session, v.vessel_id)) for v in vessels)
+    policies = session.scalars(select(InsurancePolicy)).all()
+    no_cover = sum(bool(cover_gaps(policies, v.vessel_id)[0]) for v in vessels)
+    count = lambda q: session.scalar(select(func.count()).select_from(q.subquery()))
+    items = [
+        ("error", "Critical spares below minimum", short, "/supply?tab=reorder"),
+        ("error", "Vessels without H&M or P&I cover", no_cover, "/insurance"),
+        ("warning", "Insurance policies expiring, not yet renewed", len(insurance_expiring(session)), "/insurance"),
+        ("warning", "Vessels off hire now", count(select(OffHireEvent).where(OffHireEvent.status == "OPEN")), "/off-hire"),
+        ("warning", "Charterer claims awaiting our answer", count(select(PerformanceClaim).where(PerformanceClaim.status == "OPEN")), "/off-hire?tab=claims"),
+        ("warning", "Jobs waiting for a spare", count(select(SpareRequest.job_id).where(SpareRequest.status == "WAITING").distinct()), "/maintenance"),
+        ("info", "Purchase orders to approve", count(select(PurchaseOrder).where(PurchaseOrder.status == "DRAFT")), "/supply?tab=orders"),
+        ("info", "Port calls waiting for the final account", count(select(PortCall).where(PortCall.status == "SAILED")), "/port-calls"),
+        ("info", "Bids due in the next 14 days", count(select(Tender).where(Tender.status == "DRAFT", Tender.due_on >= now, Tender.due_on <= add_days(now, 14))), "/tenders"),
+    ]
+    return [{"level": level, "label": label, "count": n, "to": to} for level, label, n, to in items if n]
 
 
 @router.get("/audit", dependencies=[Depends(manager)])

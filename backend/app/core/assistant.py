@@ -145,7 +145,7 @@ def vessel_answer(v: dict, fleet_row: dict | None, ready: dict | None = None) ->
             when = f"{p['source']}, {p['age_hours']:g} h ago" + (", out of date" if p["stale"] else "")
         lines.append(f"Position: {p['label']} at {p['lat']:.3f}, {p['lon']:.3f} ({when}).")
     if fleet_row and fleet_row["contract_no"]:
-        lines.append(f"This month: revenue {money(fleet_row['revenue_mtd'])}, cost {money(fleet_row['opex_mtd'])}, "
+        lines.append(f"This month: revenue {money(fleet_row['revenue_mtd'])}, cost {money(fleet_row['cost_mtd'])}, "
                      f"profit {money(fleet_row['pnl_mtd'])}, utilisation {fleet_row['utilisation']}%.")
         if fleet_row["missing_reports_7d"]:
             lines.append(f"Missing daily reports in the last 7 days: {fleet_row['missing_reports_7d']}.")

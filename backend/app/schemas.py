@@ -192,3 +192,303 @@ class InvoiceDraftIn(BaseModel):
 
 class PaymentIn(BaseModel):
     paid_on: str = Field(pattern=ISO_DATE)
+
+
+# --- Tenders, off hire, claims ---
+
+MONTH = r"^\d{4}-(0[1-9]|1[0-2])$"
+MINUTE = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$"
+
+
+def money(default: float = 0):
+    return Field(default=default, ge=0, le=1e11)
+
+
+class TenderIn(BaseModel):
+    ref: str = Field(min_length=2, max_length=60)
+    client: str = Field(min_length=2, max_length=120)
+    vessel_type: Literal["DSV", "OSV", "BARGE", "BULK"]
+    vessel_id: str | None = None
+    scope: str = Field(min_length=2, max_length=500)
+    start_date: str = Field(pattern=ISO_DATE)
+    end_date: str = Field(pattern=ISO_DATE)
+    due_on: str = Field(pattern=ISO_DATE)
+    operating_rate: float = Field(gt=0, le=1e9)
+    standby_rate: float = Field(ge=0, le=1e9)
+    operating_share: float = Field(default=0.85, ge=0, le=1)
+    mob_fee: float = money()
+    demob_fee: float = money()
+    mob_cost: float = money()
+    extra_daily_cost: float = money()
+    probability: float = Field(default=0.3, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def sensible(self):
+        if self.end_date < self.start_date:
+            raise ValueError("The end date must not be before the start date.")
+        if self.standby_rate > self.operating_rate:
+            raise ValueError("The standby rate is normally below the operating rate.")
+        return self
+
+
+class TenderOutcomeIn(BaseModel):
+    status: Literal["SUBMITTED", "WON", "LOST", "WITHDRAWN"]
+    winning_rate: float | None = Field(default=None, gt=0)
+    note: str = Field(default="", max_length=1000)
+
+
+class TenderToContractIn(BaseModel):
+    contract_no: str = Field(min_length=3, max_length=40)
+    vessel_id: str | None = None  # defaults to the vessel offered
+
+
+class OffHireIn(BaseModel):
+    vessel_id: str
+    start_at: str = Field(pattern=MINUTE)
+    end_at: str | None = Field(default=None, pattern=MINUTE)
+    reason: Literal["BREAKDOWN", "MAINTENANCE", "CREW", "DOCUMENTS", "OTHER"]
+    description: str = Field(min_length=3, max_length=1000)
+
+    @model_validator(mode="after")
+    def in_order(self):
+        if self.end_at and self.end_at <= self.start_at:
+            raise ValueError("The end must be after the start.")
+        return self
+
+
+class OffHireEndIn(BaseModel):
+    end_at: str = Field(pattern=MINUTE)
+
+
+class ClaimIn(BaseModel):
+    contract_no: str
+    kind: Literal["SPEED", "FUEL", "DP", "EQUIPMENT", "DIVING", "OFF_HIRE", "OTHER"]
+    period: str = Field(pattern=MONTH)
+    description: str = Field(min_length=5, max_length=2000)
+    amount_claimed: float = Field(gt=0, le=1e11)
+
+
+class ClaimDecisionIn(BaseModel):
+    status: Literal["ACCEPTED", "REJECTED"]
+    amount_agreed: float | None = Field(default=None, ge=0)
+    note: str = Field(min_length=3, max_length=1000)
+
+
+# --- Documents ---
+
+
+class DocumentIn(BaseModel):
+    entity: Literal["contract", "tender", "drydock", "policy", "port_call", "po"]
+    entity_key: str = Field(min_length=1, max_length=60)
+    kind: Literal["CHARTER_PARTY", "ADDENDUM", "BANK_GUARANTEE", "QUOTE", "POLICY", "INVOICE", "REPORT", "OTHER"]
+    title: str = Field(min_length=2, max_length=120)
+    filename: str = Field(min_length=1, max_length=160)
+    content_base64: str = Field(min_length=4, max_length=14_000_000)  # about 10 MB once decoded
+    note: str = Field(default="", max_length=500)
+
+
+# --- Supply ---
+
+
+class VendorIn(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+    category: Literal["SPARES", "STORES", "SERVICE", "AGENT", "YARD"]
+    country: str = Field(default="", max_length=60)
+    contact: str = Field(default="", max_length=80)
+    email: str = Field(default="", max_length=120, pattern=r"^$|^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    phone: str = Field(default="", max_length=40)
+    tax_id: str = Field(default="", max_length=40)
+    payment_terms_days: int = Field(default=30, ge=0, le=180)
+    approved: bool = True
+    rating: int | None = Field(default=None, ge=1, le=5)
+
+
+class PartIn(BaseModel):
+    part_no: str = Field(min_length=2, max_length=60)
+    name: str = Field(min_length=2, max_length=160)
+    maker: str = Field(default="", max_length=80)
+    unit: str = Field(default="pc", min_length=1, max_length=12)
+    unit_cost: float = money()
+    vendor_id: int | None = None
+    lead_days: int = Field(default=14, ge=0, le=365)
+
+
+class StockLevelIn(BaseModel):
+    part_id: int
+    location: str = Field(min_length=1, max_length=40)
+    min_qty: float = Field(ge=0, le=1e6)
+    equipment_id: int | None = None
+    bin: str = Field(default="", max_length=40)
+
+
+class StockAdjustIn(BaseModel):
+    part_id: int
+    location: str
+    qty: float = Field(ge=0, le=1e6)  # the counted quantity
+    reason: str = Field(min_length=3, max_length=300)
+
+
+class TransferIn(BaseModel):
+    part_id: int
+    from_location: str
+    to_location: str
+    qty: float = Field(gt=0, le=1e6)
+
+
+class POLineIn(BaseModel):
+    part_id: int | None = None
+    description: str = Field(default="", max_length=200)
+    qty: float = Field(gt=0, le=1e6)
+    unit_price: float = Field(ge=0, le=1e10)
+
+    @model_validator(mode="after")
+    def named(self):
+        if self.part_id is None and not self.description.strip():
+            raise ValueError("Each line needs a part or a description.")
+        return self
+
+
+class POIn(BaseModel):
+    vendor_id: int
+    deliver_to: str
+    needed_by: str | None = Field(default=None, pattern=ISO_DATE)
+    note: str = Field(default="", max_length=500)
+    lines: list[POLineIn] = Field(min_length=1, max_length=100)
+
+
+class ReceiveIn(BaseModel):
+    lines: dict[int, float]  # PO line id -> quantity received now
+
+
+class SpareRequestIn(BaseModel):
+    part_id: int
+    qty: float = Field(gt=0, le=1e5)
+
+
+class ReorderIn(BaseModel):
+    location: str
+
+
+# --- Port calls ---
+
+
+class DaLineIn(BaseModel):
+    id: int | None = None
+    item: str = Field(min_length=1, max_length=120)
+    pda: float = money()
+    fda: float | None = Field(default=None, ge=0, le=1e11)
+
+
+class PortCallIn(BaseModel):
+    vessel_id: str
+    port: str = Field(min_length=2, max_length=80)
+    purpose: str = Field(min_length=2, max_length=200)
+    eta: str = Field(pattern=ISO_DATE)
+    etd: str = Field(pattern=ISO_DATE)
+    agent_id: int | None = None
+    lines: list[DaLineIn] = Field(default_factory=list, max_length=60)  # the PDA
+
+    @model_validator(mode="after")
+    def in_order(self):
+        if self.etd < self.eta:
+            raise ValueError("Departure cannot be before arrival.")
+        return self
+
+
+class PortStatusIn(BaseModel):
+    on: str = Field(pattern=ISO_DATE)
+
+
+class AccountIn(BaseModel):
+    lines: list[DaLineIn] = Field(min_length=1, max_length=60)
+    advance_paid: float = money()
+
+
+# --- Dry dock ---
+
+
+class DryDockIn(BaseModel):
+    vessel_id: str
+    title: str = Field(min_length=3, max_length=120)
+    planned_start: str = Field(pattern=ISO_DATE)
+    planned_end: str = Field(pattern=ISO_DATE)
+    bottom_survey: bool = True
+
+    @model_validator(mode="after")
+    def in_order(self):
+        if self.planned_end < self.planned_start:
+            raise ValueError("The end must not be before the start.")
+        return self
+
+
+class DryDockItemIn(BaseModel):
+    category: Literal["HULL", "MACHINERY", "CLASS", "ELECTRICAL", "SAFETY", "DIVING", "OTHER"]
+    description: str = Field(min_length=2, max_length=300)
+    budget: float = money()
+    actual: float = money()
+    status: Literal["OPEN", "DONE", "DEFERRED"] = "OPEN"
+
+
+class YardQuoteIn(BaseModel):
+    vendor_id: int
+    price: float = Field(gt=0, le=1e11)
+    days: int = Field(gt=0, le=365)
+    deviation_cost: float = money()
+    note: str = Field(default="", max_length=500)
+
+
+# --- Insurance ---
+
+
+class PolicyIn(BaseModel):
+    kind: Literal["HM", "PI", "CREW", "LOH", "OTHER"]
+    insurer: str = Field(min_length=2, max_length=120)
+    policy_no: str = Field(min_length=2, max_length=60)
+    vessel_id: str | None = None
+    sum_insured: float = money()
+    deductible: float = money()
+    premium: float = money()
+    start_date: str = Field(pattern=ISO_DATE)
+    end_date: str = Field(pattern=ISO_DATE)
+
+    @model_validator(mode="after")
+    def in_order(self):
+        if self.end_date <= self.start_date:
+            raise ValueError("The policy must end after it starts.")
+        return self
+
+
+class InsuranceClaimIn(BaseModel):
+    policy_id: int
+    vessel_id: str
+    incident_on: str = Field(pattern=ISO_DATE)
+    description: str = Field(min_length=5, max_length=2000)
+    amount: float = Field(gt=0, le=1e11)
+
+
+class InsuranceClaimUpdateIn(BaseModel):
+    status: Literal["SUBMITTED", "SETTLED", "REJECTED"]
+    recovered: float | None = Field(default=None, ge=0)
+    on: str = Field(pattern=ISO_DATE)
+
+
+# --- Finance ---
+
+
+class CostIn(BaseModel):
+    vessel_id: str
+    on_date: str = Field(pattern=ISO_DATE)
+    category: Literal["SPARES", "PORT", "DRYDOCK", "INSURANCE", "OTHER"]
+    amount: float = Field(ge=-1e10, le=1e10)
+    description: str = Field(min_length=3, max_length=300)
+
+
+class BudgetIn(BaseModel):
+    vessel_id: str
+    period: str = Field(pattern=MONTH)
+    category: Literal["REVENUE", "RUNNING", "INSURANCE", "SPARES", "PORT", "DRYDOCK", "OTHER"]
+    amount: float = Field(ge=0, le=1e11)
+
+
+class BudgetBatchIn(BaseModel):
+    rows: list[BudgetIn] = Field(min_length=1, max_length=2000)

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from ..auth import audit, manager, staff
 from ..core.fleetops import (MLC_MAX_MONTHS, crew_alerts, maintenance, manning_gaps, on_board, planner, readiness)
 from ..db import get_session
-from ..models import Assignment, CrewCertificate, CrewMember, Equipment, MaintenanceJob, User, Vessel, as_dict
+from ..models import Assignment, CrewCertificate, CrewMember, Equipment, MaintenanceJob, SpareRequest, User, Vessel, as_dict
 from ..schemas import AssignIn, CloseDefectIn, HoursIn, JobDoneIn, SignOffIn
 from .fleet import add_months, get_or_404, today
 
@@ -16,6 +16,12 @@ router = APIRouter(prefix="/api", tags=["fleet operations"], dependencies=[Depen
 
 
 # ---------------- Maintenance ----------------
+
+
+def stop_waiting(session: Session, job: MaintenanceJob) -> None:
+    """A finished job no longer waits for spares."""
+    for req in session.scalars(select(SpareRequest).where(SpareRequest.job_id == job.id, SpareRequest.status == "WAITING")):
+        req.status = "CANCELLED"
 
 
 @router.get("/maintenance")
@@ -51,6 +57,7 @@ def job_done(job_id: int, body: JobDoneIn, user: User = Depends(staff), session:
         raise HTTPException(422, "The date cannot be in the future.")
     e = session.get(Equipment, job.equipment_id)
     job.last_done_on, job.last_done_hours = body.on, body.hours if body.hours is not None else e.running_hours
+    stop_waiting(session, job)
     audit(session, user, "maintenance.done", f"job {job.id}", f"{e.name}: {job.title}")
     session.commit()
     return as_dict(job)
@@ -62,6 +69,7 @@ def close_defect(job_id: int, body: CloseDefectIn, user: User = Depends(staff), 
     if job.kind != "DEFECT" or job.status != "OPEN":
         raise HTTPException(409, "Only an open defect can be closed.")
     job.status, job.closed_on, job.note = "CLOSED", today(), body.note.strip()
+    stop_waiting(session, job)
     audit(session, user, "defect.closed", f"job {job.id}", body.note.strip())
     session.commit()
     return as_dict(job)

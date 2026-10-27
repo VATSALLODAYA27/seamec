@@ -2,7 +2,7 @@ import { Result, Spin } from 'antd'
 import { lazy } from 'react'
 import { Route, Routes } from 'react-router-dom'
 
-import { useMe } from './api'
+import { can, useMe } from './api'
 import Shell from './components/Shell'
 import Dashboard from './pages/Dashboard'
 // Daily reports stay in the main bundle: a vessel must be able to file one offline even if it never opened the page.
@@ -15,6 +15,13 @@ const Certificates = lazy(() => import('./pages/Certificates'))
 const ClientPortal = lazy(() => import('./pages/ClientPortal'))
 const Contracts = lazy(() => import('./pages/Contracts'))
 const Crew = lazy(() => import('./pages/Crew'))
+const DryDock = lazy(() => import('./pages/DryDock'))
+const Finance = lazy(() => import('./pages/Finance'))
+const Insurance = lazy(() => import('./pages/Insurance'))
+const OffHire = lazy(() => import('./pages/OffHire'))
+const PortCalls = lazy(() => import('./pages/PortCalls'))
+const Supply = lazy(() => import('./pages/Supply'))
+const Tenders = lazy(() => import('./pages/Tenders'))
 const Invoices = lazy(() => import('./pages/Invoices'))
 const Maintenance = lazy(() => import('./pages/Maintenance'))
 const Planner = lazy(() => import('./pages/Planner'))
@@ -43,6 +50,13 @@ export default function App() {
         <Route path="contracts" element={<Contracts me={me.data} />} />
         <Route path="reports" element={<Reports me={me.data} />} />
         <Route path="invoices" element={<Invoices me={me.data} />} />
+        <Route path="drydock" element={<DryDock me={me.data} />} />
+        <Route path="insurance" element={<Insurance me={me.data} />} />
+        <Route path="off-hire" element={<OffHire me={me.data} />} />
+        <Route path="port-calls" element={<PortCalls me={me.data} />} />
+        <Route path="supply" element={<Supply me={me.data} />} />
+        <Route path="tenders" element={<Tenders me={me.data} />} />
+        <Route path="finance" element={can.manage(me.data) ? <Finance /> : <Result status="403" title="Managers only" />} />
         <Route path="audit" element={<Audit />} />
         <Route path="users" element={<Users me={me.data} />} />
         <Route path="*" element={<Result status="404" title="Page not found" />} />

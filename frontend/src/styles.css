@@ -206,6 +206,107 @@ body {
   background: var(--soft);
 }
 
+.metric.still:hover {
+  background: none;
+}
+
+/* A page's figures sit above its tabs, with room before them. */
+.metrics.page-figures {
+  margin-bottom: 16px;
+}
+
+/* ---- Lists of things needing attention ---- */
+
+.attention-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--edge);
+  color: inherit;
+}
+
+.attention-row:last-child {
+  border-bottom: none;
+}
+
+.attention-row:hover {
+  background: var(--soft);
+}
+
+.attention-row b {
+  min-width: 28px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.attention-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 4px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+
+.forecast-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* The live margin of a bid, under its form. */
+.bid-preview {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--soft);
+}
+
+/* ---- Dry dock project cards ---- */
+
+.project-card {
+  height: 100%;
+  cursor: pointer;
+  border-top: 4px solid var(--status, #6b7280);
+  transition: box-shadow 0.15s;
+}
+
+.project-card:hover {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+}
+
+.project-card .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* A thin bar for budget against actual, or a share of a total. */
+.bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
 .metric b {
   display: block;
   margin: 4px 0 2px;

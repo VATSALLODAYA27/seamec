@@ -11,7 +11,7 @@ from .. import config
 from ..auth import admin, audit, manager, staff
 from ..core.tracking import age_hours, iso, report_time, utc_now
 from ..db import get_session
-from ..models import Certificate, Contract, DailyReport, HireInvoice, PositionFix, User, Vessel, as_dict
+from ..models import Certificate, Contract, DailyReport, Document, HireInvoice, PositionFix, User, Vessel, as_dict
 from ..schemas import CertificateRenewIn, ContractIn, EndorseIn
 
 router = APIRouter(prefix="/api", tags=["fleet"], dependencies=[Depends(staff)])
@@ -219,12 +219,16 @@ def list_contracts(session: Session = Depends(get_session)):
     billed: dict[str, float] = {}
     for inv in session.scalars(select(HireInvoice).where(HireInvoice.status != "DRAFT")):
         billed[inv.contract_no] = billed.get(inv.contract_no, 0) + inv.amount
+    docs = defaultdict(set)
+    for key, kind in session.execute(select(Document.entity_key, Document.kind).where(Document.entity == "contract")):
+        docs[key].add(kind)
     rows = session.scalars(select(Contract).order_by(Contract.status, Contract.start_date.desc())).all()
-    return [contract_out(c, names, round(billed.get(c.contract_no, 0), 2)) for c in rows]
+    return [{**contract_out(c, names, round(billed.get(c.contract_no, 0), 2)), "documents": len(docs[c.contract_no]),
+             "cp_on_file": "CHARTER_PARTY" in docs[c.contract_no]} for c in rows]
 
 
-@router.post("/contracts", status_code=201)
-def create_contract(body: ContractIn, user: User = Depends(admin), session: Session = Depends(get_session)):
+def new_contract(session: Session, body: ContractIn, user: User) -> Contract:
+    """Make a contract, refusing a double booking or a vessel whose critical certificates will not be valid."""
     vessel = get_or_404(session, Vessel, body.vessel_id, "Vessel")
     if session.get(Contract, body.contract_no):
         raise HTTPException(409, f"Contract {body.contract_no} already exists.")
@@ -246,8 +250,14 @@ def create_contract(body: ContractIn, user: User = Depends(admin), session: Sess
     if body.start_date <= today() <= body.end_date:
         vessel.status = "ON_HIRE"
     audit(session, user, "contract.created", f"contract {contract.contract_no}", f"{vessel.name} for {body.client}")
+    return contract
+
+
+@router.post("/contracts", status_code=201)
+def create_contract(body: ContractIn, user: User = Depends(admin), session: Session = Depends(get_session)):
+    contract = new_contract(session, body, user)
     session.commit()
-    return contract_out(contract, {vessel.vessel_id: vessel.name}, 0)
+    return contract_out(contract, {v.vessel_id: v.name for v in session.scalars(select(Vessel))}, 0)
 
 
 @router.post("/contracts/{contract_no}/complete")
@@ -256,6 +266,7 @@ def complete_contract(contract_no: str, user: User = Depends(manager), session: 
     if c.status != "ACTIVE":
         raise HTTPException(409, "Only an active contract can be completed.")
     c.status = "COMPLETED"
+    c.end_date = min(c.end_date, today())  # finished early: the days after it are no longer this contract's
     vessel = session.get(Vessel, c.vessel_id)
     if vessel.status == "ON_HIRE":
         vessel.status = "AVAILABLE"

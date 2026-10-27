@@ -1,4 +1,18 @@
-import { CheckCircleFilled, ClockCircleOutlined, CloseCircleFilled, ExclamationCircleFilled, StopFilled, ToolOutlined } from '@ant-design/icons'
+import {
+  CheckCircleFilled,
+  ClockCircleOutlined,
+  CloseCircleFilled,
+  EditOutlined,
+  EnvironmentOutlined,
+  ExclamationCircleFilled,
+  FileTextOutlined,
+  InboxOutlined,
+  MinusCircleOutlined,
+  SendOutlined,
+  StopFilled,
+  ToolOutlined,
+  TrophyOutlined,
+} from '@ant-design/icons'
 import { Alert, Tag, Typography } from 'antd'
 import type { ReactNode } from 'react'
 
@@ -45,6 +59,60 @@ const STATES: Record<string, Record<string, Spec>> = {
     DRAFT: { label: 'Draft', icon: <ClockCircleOutlined /> },
     APPROVED: { label: 'Awaiting payment', color: 'processing', icon: <CheckCircleFilled /> },
     PAID: { label: 'Paid', color: 'success', icon: <CheckCircleFilled /> },
+  },
+  tender: {
+    DRAFT: { label: 'Preparing', icon: <EditOutlined /> },
+    SUBMITTED: { label: 'Submitted', color: 'processing', icon: <SendOutlined /> },
+    WON: { label: 'Won', color: 'success', icon: <TrophyOutlined /> },
+    LOST: { label: 'Lost', color: 'error', icon: <CloseCircleFilled /> },
+    WITHDRAWN: { label: 'Withdrawn', icon: <MinusCircleOutlined /> },
+  },
+  offhire: {
+    OPEN: { label: 'Off hire now', color: 'error', icon: <ExclamationCircleFilled /> },
+    ENDED: { label: 'Back on hire', color: 'warning', icon: <ClockCircleOutlined /> },
+    AGREED: { label: 'Agreed with charterer', color: 'success', icon: <CheckCircleFilled /> },
+  },
+  claim: {
+    OPEN: { label: 'Awaiting answer', color: 'warning', icon: <ClockCircleOutlined /> },
+    ACCEPTED: { label: 'Accepted', color: 'processing', icon: <CheckCircleFilled /> },
+    REJECTED: { label: 'Rejected', icon: <CloseCircleFilled /> },
+  },
+  po: {
+    DRAFT: { label: 'To approve', color: 'warning', icon: <ClockCircleOutlined /> },
+    APPROVED: { label: 'Approved', color: 'processing', icon: <CheckCircleFilled /> },
+    ORDERED: { label: 'With vendor', color: 'processing', icon: <SendOutlined /> },
+    PART_RECEIVED: { label: 'Part received', color: 'warning', icon: <InboxOutlined /> },
+    RECEIVED: { label: 'Received', color: 'success', icon: <CheckCircleFilled /> },
+    CANCELLED: { label: 'Cancelled', icon: <MinusCircleOutlined /> },
+  },
+  port: {
+    PLANNED: { label: 'Planned', icon: <ClockCircleOutlined /> },
+    ARRIVED: { label: 'In port', color: 'processing', icon: <EnvironmentOutlined /> },
+    SAILED: { label: 'Awaiting FDA', color: 'warning', icon: <FileTextOutlined /> },
+    CLOSED: { label: 'Closed', color: 'success', icon: <CheckCircleFilled /> },
+  },
+  drydock: {
+    PLANNING: { label: 'Planning', icon: <EditOutlined /> },
+    CONTRACTED: { label: 'Yard chosen', color: 'processing', icon: <CheckCircleFilled /> },
+    IN_DOCK: { label: 'In dock', color: 'warning', icon: <ToolOutlined /> },
+    COMPLETED: { label: 'Completed', color: 'success', icon: <CheckCircleFilled /> },
+  },
+  dockitem: {
+    OPEN: { label: 'Open', color: 'processing', icon: <ClockCircleOutlined /> },
+    DONE: { label: 'Done', color: 'success', icon: <CheckCircleFilled /> },
+    DEFERRED: { label: 'Deferred', icon: <MinusCircleOutlined /> },
+  },
+  policy: {
+    FUTURE: { label: 'Starts later', icon: <ClockCircleOutlined /> },
+    IN_FORCE: { label: 'In force', color: 'success', icon: <CheckCircleFilled /> },
+    EXPIRING: { label: 'Expiring', color: 'warning', icon: <ExclamationCircleFilled /> },
+    EXPIRED: { label: 'Expired', color: 'error', icon: <StopFilled /> },
+  },
+  insclaim: {
+    NOTIFIED: { label: 'Notified', color: 'warning', icon: <ClockCircleOutlined /> },
+    SUBMITTED: { label: 'Submitted', color: 'processing', icon: <SendOutlined /> },
+    SETTLED: { label: 'Settled', color: 'success', icon: <CheckCircleFilled /> },
+    REJECTED: { label: 'Rejected', color: 'error', icon: <CloseCircleFilled /> },
   },
 }
 

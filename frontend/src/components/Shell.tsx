@@ -1,5 +1,12 @@
 import {
   AuditOutlined,
+  BuildOutlined,
+  EnvironmentOutlined,
+  FieldTimeOutlined,
+  LineChartOutlined,
+  SafetyOutlined,
+  ShoppingCartOutlined,
+  TrophyOutlined,
   CalendarOutlined,
   CloudUploadOutlined,
   CompassOutlined,
@@ -77,11 +84,20 @@ export default function Shell({ me }: { me: User }) {
       { key: '/certificates', label: 'Certificates', icon: <FileProtectOutlined /> },
       { key: '/maintenance', label: 'Maintenance', icon: <ToolOutlined /> },
       { key: '/crew', label: 'Crew', icon: <UsergroupAddOutlined /> },
+      { key: '/drydock', label: 'Dry dock', icon: <BuildOutlined /> },
+      { key: '/insurance', label: 'Insurance', icon: <SafetyOutlined /> },
     ]),
-    group('Operations', [{ key: '/reports', label: 'Daily reports', icon: <FileTextOutlined /> }]),
+    group('Operations', [
+      { key: '/reports', label: 'Daily reports', icon: <FileTextOutlined /> },
+      { key: '/off-hire', label: 'Off hire and claims', icon: <FieldTimeOutlined /> },
+      { key: '/port-calls', label: 'Port calls', icon: <EnvironmentOutlined /> },
+      { key: '/supply', label: 'Supply', icon: <ShoppingCartOutlined /> },
+    ]),
     group('Commercial', [
+      { key: '/tenders', label: 'Tenders', icon: <TrophyOutlined /> },
       { key: '/contracts', label: 'Contracts', icon: <SolutionOutlined /> },
       { key: '/invoices', label: 'Hire invoices', icon: <WalletOutlined /> },
+      ...(can.manage(me) ? [{ key: '/finance', label: 'Finance', icon: <LineChartOutlined /> }] : []),
     ]),
     ...(can.readAudit(me)
       ? [

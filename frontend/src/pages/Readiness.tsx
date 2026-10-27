@@ -43,7 +43,7 @@ export default function Readiness() {
     <>
       <PageHead
         title="Hire readiness"
-        sub="A vessel is hire-ready when: not in dry dock; certificates valid and annual surveys done; bottom survey within 36 months; minimum crew on board with valid certificates and within the 11-month MLC limit; and no open defect or overdue job on critical equipment (ISM Code 10.3)."
+        sub="Hire-ready means: out of dry dock, certificates and bottom survey in date, minimum crew with valid papers, critical equipment and spares in order (ISM 10.3), and H&M and P&I cover in force."
       />
       <ErrorAlert error={ready.error} />
       <Skeleton loading={ready.isPending} active>

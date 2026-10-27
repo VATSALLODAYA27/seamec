@@ -5,7 +5,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config
-from .api import assistant, auth, billing, client, dashboard, fleet, fleetops, ops, positions
+from .api import (assistant, auth, billing, client, commercial, dashboard, documents, drydock, finance, fleet, fleetops, insurance, ops,
+                  ports, positions, supply)
 from .db import migrate
 
 
@@ -16,8 +17,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="MARIS: offshore fleet ERP for SEAMEC", lifespan=lifespan,
-              description="Phase 1: fleet, contracts, daily progress reports and charter-hire billing. All data is representative.")
-for module in (auth, fleet, ops, billing, dashboard, assistant, positions, fleetops, client):
+              description="Fleet, contracts, daily reports, billing, maintenance, crew, tenders, supply, port calls, dry docks, insurance and finance. "
+                          "All data is representative.")
+for module in (auth, fleet, ops, billing, dashboard, assistant, positions, fleetops, client, commercial, documents, supply, ports, drydock,
+               insurance, finance):
     app.include_router(module.router)
 app.include_router(auth.users)
 

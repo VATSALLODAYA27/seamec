@@ -29,6 +29,14 @@ stopping the others?**
 | **Contracts** | Day rates, maintenance allowance, weather billing, tax, fees and bank guarantees; no double booking, no hire with invalid papers |
 | **Hire invoices** | Drafted from approved reports with a full breakdown; approve and record payment |
 | **Client portal** | The charterer's representative sees only their own contracts and signs or disputes each month's timesheet before invoicing |
+| **Tenders** | Bids with a margin model (break-even day rate, expected margin), win-loss by client, price gap on lost bids; a won bid becomes a contract |
+| **Off hire and claims** | Off-hire periods with their reason, checked against the daily reports; charterers' performance claims, answered within 14 days; accepted amounts come off revenue |
+| **Supply** | Spares on each vessel and at the shore warehouse, critical-spare minimums, reorder list, purchase orders (approval limit, receipt), vendor master |
+| **Port calls** | Agent appointment, PDA against FDA line by line, balance with the agent; closing books the port cost |
+| **Dry dock** | Each docking as a project: work list with budget against actual, yard quotes ranked on full cost, in and out of dock |
+| **Insurance** | H&M, P&I, crew and loss-of-hire policies, renewals, claims and recoveries |
+| **Finance** | Profit and loss by vessel and contract, budget against actual, 12-month forecast with weighted bids, cost ledger |
+| **Documents** | Charter parties and other files kept against contracts, bids, dockings, policies, port calls and orders, with versions |
 | **Assistant** | Plain-language questions ("Is Princess ready for hire?", "Any open defects?") answered only from MARIS's own data |
 | **Users and audit log** | Role-based access (vessel/ops, ops manager, admin, client) and a record of every important action |
 
@@ -44,6 +52,9 @@ Every rule that decides money or safety follows a published industry source, not
 | Certificates run 5 years; annual survey within 3 months either side of each anniversary of the expiry date; a missed survey makes the certificate invalid | IMO Harmonized System of Survey and Certification (HSSC) |
 | Bottom inspection at most 36 months apart | HSSC |
 | Critical equipment: an open defect or overdue job blocks hire readiness | ISM Code 10.3 |
+| Critical spares: none on board blocks hire readiness; below the minimum is a warning | ISM Code 10.3 |
+| Hull and machinery and P&I cover must be in force to go on hire | Owners' insurance clause in charter parties (e.g. SUPPLYTIME 2017) |
+| Off hire for a reason other than breakdown or maintenance (crew, documents) does not use the maintenance allowance | BIMCO SUPPLYTIME 2017, clauses 13 and 14 |
 | Diving plant examination intervals set per job | IMCA D 018 |
 | At most 11 months on board without leave | MLC 2006, Standard A2.5 |
 | Diver medical up to 12 months; STCW medical up to 2 years; certificate of competency revalidated every 5 years | IMCA D 014; STCW I/9, I/11 |

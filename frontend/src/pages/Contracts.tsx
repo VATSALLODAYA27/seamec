@@ -1,16 +1,17 @@
 import { PlusOutlined } from '@ant-design/icons'
-import { Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Table, Tag, Typography } from 'antd'
+import { Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { Dayjs } from 'dayjs'
 import { useState } from 'react'
 
 import { can, fmtDate, money, moneyShort, postJson, useAction, useContracts, useVessels, type Contract, type User } from '../api'
-import { PageHead, VesselLink } from '../components/ui'
+import Documents from '../components/Documents'
+import { PageHead, RUPEES, VesselLink } from '../components/ui'
 import { ErrorAlert, StateTag } from '../components/Tags'
 
 type FormValues = Omit<Contract, 'start_date' | 'end_date' | 'bg_expiry'> & { period: [Dayjs, Dayjs]; bg_expiry?: Dayjs }
 
-const rupees = { style: { width: '100%' }, min: 0, step: 100000, formatter: (v?: number | string) => `₹ ${v ?? ''}`.replace(/\B(?=(\d{3})+(?!\d))/g, ','), parser: (v?: string) => Number((v ?? '').replace(/[₹,\s]/g, '')) }
+const rupees = RUPEES
 
 function NewContract({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [form] = Form.useForm<FormValues>()
@@ -173,6 +174,16 @@ export default function Contracts({ me }: { me: User }) {
         ),
     },
     { title: 'Billed', dataIndex: 'billed', align: 'right', render: moneyShort },
+    {
+      title: 'Charter party',
+      key: 'docs',
+      render: (_, c) => (
+        <Flex align="center" gap={4}>
+          <Documents entity="contract" entityKey={c.contract_no} title={c.contract_no} canUpload={can.approve(me)} count={c.documents} defaultKind="CHARTER_PARTY" />
+          {!c.cp_on_file && <Tag color="warning">Not on file</Tag>}
+        </Flex>
+      ),
+    },
     { title: 'Status', dataIndex: 'status', render: (s) => <StateTag kind="contract" value={s} /> },
     ...(can.approve(me)
       ? [
@@ -205,7 +216,7 @@ export default function Contracts({ me }: { me: User }) {
     />
     <Card>
       <ErrorAlert error={contracts.error} />
-      <Table size="small" rowKey="contract_no" columns={columns} dataSource={contracts.data} loading={contracts.isPending} pagination={false} scroll={{ x: 1100 }} />
+      <Table size="small" rowKey="contract_no" columns={columns} dataSource={contracts.data} loading={contracts.isPending} pagination={false} scroll={{ x: 1250 }} />
       <NewContract open={adding} onClose={() => setAdding(false)} />
     </Card>
     </>

@@ -4,6 +4,7 @@ import {
   ExclamationCircleOutlined,
   FileProtectOutlined,
   InfoCircleOutlined,
+  SafetyOutlined,
   TeamOutlined,
   ToolOutlined,
   WarningOutlined,
@@ -42,14 +43,19 @@ function itemsFor(p: PlanRow, today: Dayjs): Item[] {
   const onContract = (day: string) => contracts.find((c) => c.from <= day && day <= c.to)
   const items: Item[] = []
   const days = (d: string) => dayjs(d).diff(today, 'day')
+  const dock = p.events.find((e) => e.type === 'DRYDOCK')
 
   // Dry dock (bottom survey) deadline
   if (p.bottom_survey_due) {
     const due = p.bottom_survey_due
     if (p.status === 'DRY_DOCK') {
       items.push({ vessel: p, date: iso(today), level: 'info', icon: <ToolOutlined />,
-        text: <>is <b>in dry dock now</b>. Record the bottom survey date when it is done, then line up the next charter.</>,
-        action: { label: 'Open vessel', to: `/vessels/${p.vessel_id}` } })
+        text: <>is <b>in dry dock now</b>. Complete the docking when she is out (that records the bottom survey), then line up the next charter.</>,
+        action: { label: 'Dry dock', to: '/drydock' } })
+    } else if (dock && dock.from <= due) {
+      items.push({ vessel: p, date: dock.from, level: 'info', icon: <ToolOutlined />,
+        text: <>{dock.label.replace(/^Dry dock/, 'dry dock')} from <b>{fmtDate(dock.from)}</b> to {fmtDate(dock.to)}, before the bottom survey falls due ({fmtDate(due)}).</>,
+        action: { label: 'Dry dock', to: '/drydock' } })
     } else if (days(due) < 0) {
       items.push({ vessel: p, date: due, level: 'urgent', icon: <ExclamationCircleOutlined />,
         text: <>dry dock deadline <b>passed on {fmtDate(due)}</b>. Dock now, or agree an in-water survey with class.</> })
@@ -81,6 +87,13 @@ function itemsFor(p: PlanRow, today: Dayjs): Item[] {
       text: <>{first.label.replace(/ expires$/, '')} {expired ? 'expired' : 'expires'} <b>{fmtDate(first.from)}</b>
         {certs.length > 1 ? `, and ${certs.length - 1} more certificate${certs.length > 2 ? 's' : ''} within a year` : ''}. Renew in time.</>,
       action: { label: 'Certificates', to: '/certificates' } })
+  }
+
+  // Insurance lapsing (charters need hull and machinery and P&I cover throughout)
+  for (const e of p.events.filter((e) => e.type === 'INSURANCE_EXPIRY' && days(e.from) <= 60)) {
+    items.push({ vessel: p, date: e.from, level: days(e.from) <= 30 ? 'warn' : 'info', icon: <SafetyOutlined />,
+      text: <>{e.label.replace(/ expires$/, '')} expires <b>{fmtDate(e.from)}</b>. Renew before it lapses.</>,
+      action: { label: 'Insurance', to: '/insurance' } })
   }
 
   return items
@@ -187,6 +200,7 @@ function cellFor(p: PlanRow, month: Dayjs, today: Dayjs): Cell {
   const certs = p.events.filter((e) => e.type === 'CERT_EXPIRY' && e.from >= first && e.from <= last)
   const note = certs.length ? `${certs.length} certificate${certs.length > 1 ? 's' : ''} expire${certs.length > 1 ? '' : 's'}` : undefined
   if (p.status === 'DRY_DOCK' && month.isSame(today, 'month')) return { word: 'In dock', kind: 'dock', note }
+  if (p.events.some((e) => e.type === 'DRYDOCK' && e.from <= last && e.to >= first)) return { word: 'Dry dock', kind: 'dock', note }
   if (p.bottom_survey_due && p.bottom_survey_due >= first && p.bottom_survey_due <= last) return { word: 'Dry dock due', kind: 'dock', note }
   const ending = contracts.find((c) => c.to >= first && c.to < last && !contracts.some((o) => o.from > c.to && o.from <= last))
   if (ending) return { word: `Ends ${dayjs(ending.to).format('D MMM')}`, kind: 'end', note }

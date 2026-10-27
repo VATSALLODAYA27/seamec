@@ -1,14 +1,64 @@
 import { CheckOutlined, CompassOutlined, ExclamationOutlined, LogoutOutlined } from '@ant-design/icons'
 import { useQueryClient } from '@tanstack/react-query'
-import { Alert, Button, Card, DatePicker, Descriptions, Empty, Flex, Input, Modal, Select, Table, Typography } from 'antd'
+import { Alert, Button, Card, DatePicker, Descriptions, Empty, Flex, Form, Input, InputNumber, Modal, Select, Table, Typography } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useState } from 'react'
 
-import { fmtDate, money, num, postJson, useAction, useClientContracts, useTimesheet, type User } from '../api'
+import { CLAIM_KINDS, fmtDate, money, num, postJson, useAction, useClientClaims, useClientContracts, useTimesheet, type User } from '../api'
 import { APP_NAME } from '../brand'
 import { ErrorAlert, StateTag } from '../components/Tags'
 import { forgetAll } from '../offline'
-import { ModeButton } from '../components/ui'
+import { FormModal, ModeButton, RUPEES } from '../components/ui'
+
+type ClaimValues = { contract_no: string; kind: string; month: Dayjs; description: string; amount_claimed: number }
+
+/** The charterer's performance claims on its own contracts, and a way to raise one. */
+function ClientClaims({ contracts }: { contracts: { value: string; label: string }[] }) {
+  const claims = useClientClaims()
+  const [raising, setRaising] = useState(false)
+  const raise = useAction(
+    (v: ClaimValues) => postJson('/client/claims', { contract_no: v.contract_no, kind: v.kind, period: v.month.format('YYYY-MM'), description: v.description, amount_claimed: v.amount_claimed }),
+    'Claim sent to SEAMEC',
+    () => setRaising(false),
+  )
+  return (
+    <Card title="Performance claims" style={{ marginTop: 24 }} extra={contracts.length > 0 && <Button onClick={() => setRaising(true)}>Raise a claim</Button>}>
+      <Table
+        size="small"
+        rowKey="id"
+        loading={claims.isPending}
+        dataSource={claims.data}
+        pagination={false}
+        locale={{ emptyText: 'No claims raised' }}
+        columns={[
+          { title: 'Claim', dataIndex: 'kind', render: (k, c) => <><b>{CLAIM_KINDS[k as keyof typeof CLAIM_KINDS]}</b><div className="muted">{c.description}</div></> },
+          { title: 'Contract', dataIndex: 'contract_no' },
+          { title: 'Month', dataIndex: 'period', render: (p) => dayjs(`${p}-01`).format('MMM YYYY') },
+          { title: 'Claimed', dataIndex: 'amount_claimed', align: 'right', render: money },
+          { title: 'Agreed', dataIndex: 'amount_agreed', align: 'right', render: (a) => (a === null ? '—' : money(a)) },
+          { title: 'Status', dataIndex: 'status', render: (s, c) => <><StateTag kind="claim" value={s} />{c.decision_note && <div className="muted">{c.decision_note}</div>}</> },
+        ]}
+      />
+      <FormModal<ClaimValues>
+        open={raising}
+        title="Raise a performance claim"
+        okText="Send claim"
+        initial={{ contract_no: contracts[0]?.value, kind: 'EQUIPMENT', month: dayjs() }}
+        pending={raise.isPending}
+        error={raise.error}
+        onSubmit={raise.mutate}
+        onClose={() => setRaising(false)}
+      >
+        <Form.Item name="contract_no" label="Contract" rules={[{ required: true }]}><Select options={contracts} /></Form.Item>
+        <Form.Item name="kind" label="About"><Select options={Object.entries(CLAIM_KINDS).map(([value, label]) => ({ value, label }))} /></Form.Item>
+        <Form.Item name="month" label="Hire month" rules={[{ required: true }]}><DatePicker picker="month" style={{ width: '100%' }} disabledDate={(d) => d.isAfter(dayjs(), 'month')} /></Form.Item>
+        <Form.Item name="description" label="What happened" rules={[{ required: true, min: 5 }]}><Input.TextArea rows={3} maxLength={2000} /></Form.Item>
+        <Form.Item name="amount_claimed" label="Amount claimed" rules={[{ required: true }]}><InputNumber {...RUPEES} /></Form.Item>
+        <Typography.Text type="secondary">SEAMEC answers within 14 days.</Typography.Text>
+      </FormModal>
+    </Card>
+  )
+}
 
 /**
  * What a charterer's representative sees: only their own contracts, the approved daily reports for a month,
@@ -134,6 +184,7 @@ export default function ClientPortal({ me }: { me: User }) {
             />
           </Card>
         )}
+        <ClientClaims contracts={(contracts.data ?? []).map((c) => ({ value: c.contract_no, label: `${c.contract_no} · ${c.vessel_name}` }))} />
       </main>
       <Modal
         open={disputing}

@@ -11,8 +11,9 @@ from ..auth import audit, role_in
 from ..core.billing import month_days, month_hire
 from ..core.tracking import iso, utc_now
 from ..db import get_session
-from ..models import Contract, DailyReport, Timesheet, User, Vessel
-from ..schemas import TimesheetDecisionIn
+from ..models import Contract, DailyReport, PerformanceClaim, Timesheet, User, Vessel, as_dict
+from ..schemas import ClaimIn, TimesheetDecisionIn
+from .commercial import claim_out, raise_claim, straight_off
 from .fleet import today
 
 client_only = role_in("client")
@@ -45,7 +46,7 @@ def timesheet(contract_no: str, period: str, user: User = Depends(client_only), 
     rows = [{"on_date": r.on_date, "location": r.location, "operating_hrs": r.operating_hrs, "standby_hrs": r.standby_hrs,
              "weather_hrs": r.weather_hrs, "breakdown_hrs": r.breakdown_hrs, "transit_hrs": r.transit_hrs, "work_done": r.work_done,
              "dive_hrs": r.dive_hrs} for r in sorted(reports, key=lambda r: r.on_date) if r.on_date in days and r.status == "APPROVED"]
-    calc = month_hire(c, reports, period)
+    calc = month_hire(c, reports, period, straight_off(session, c.contract_no))
     sheet = session.scalars(select(Timesheet).where(Timesheet.contract_no == c.contract_no, Timesheet.period == period)).first()
     return {"contract_no": c.contract_no, "period": period, "rows": rows, "hours": calc["hours"], "missing_dates": calc["missing_dates"],
             "pending_dates": calc["pending_dates"], "lines": calc["lines"], "amount": calc["amount"],
@@ -57,7 +58,8 @@ def decide(body: TimesheetDecisionIn, user: User = Depends(client_only), session
     c = own_contract(session, user, body.contract_no)
     if body.period >= today()[:7]:
         raise HTTPException(409, "A month can be signed once it has ended.")
-    calc = month_hire(c, session.scalars(select(DailyReport).where(DailyReport.contract_no == c.contract_no)).all(), body.period)
+    calc = month_hire(c, session.scalars(select(DailyReport).where(DailyReport.contract_no == c.contract_no)).all(), body.period,
+                      straight_off(session, c.contract_no))
     if not calc["contract_days"]:
         raise HTTPException(409, "The contract did not run in that month.")
     if calc["pending_dates"]:
@@ -74,3 +76,22 @@ def decide(body: TimesheetDecisionIn, user: User = Depends(client_only), session
     audit(session, user, f"timesheet.{body.decision.lower()}", f"contract {c.contract_no}", f"{body.period}: {body.note.strip()}")
     session.commit()
     return {"status": sheet.status, "by": sheet.by, "at": sheet.at, "note": sheet.note}
+
+
+@router.get("/claims")
+def my_claims(user: User = Depends(client_only), session: Session = Depends(get_session)):
+    q = select(Contract)
+    if user.role != "admin":
+        q = q.where(Contract.client == user.client_name)
+    contracts = {c.contract_no: c for c in session.scalars(q)}
+    names = {v.vessel_id: v.name for v in session.scalars(select(Vessel))}
+    rows = session.scalars(select(PerformanceClaim).where(PerformanceClaim.contract_no.in_(list(contracts))).order_by(PerformanceClaim.raised_on.desc()))
+    return [claim_out(c, contracts[c.contract_no], names[contracts[c.contract_no].vessel_id]) for c in rows]
+
+
+@router.post("/claims", status_code=201)
+def client_claim(body: ClaimIn, user: User = Depends(client_only), session: Session = Depends(get_session)):
+    """The charterer's representative raises a performance claim on one of its own contracts."""
+    c = raise_claim(session, body, user, own_contract(session, user, body.contract_no))
+    session.commit()
+    return as_dict(c)
