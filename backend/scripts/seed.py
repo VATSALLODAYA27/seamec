@@ -7,7 +7,8 @@ What is real and what is not:
 - Clients, contract numbers, rates, positions, certificate dates and report figures are invented demo values.
 Dates are relative to today, so the demo always looks current.
 
-Run from backend/:  python -m scripts.seed --reset      (--reset wipes the database first)
+Run from backend/:  python -m scripts.seed --reset --demo   (--reset wipes the database first)
+Without --demo, scripts/seed_verified.py loads only verified facts instead.
 """
 import json
 import random
@@ -21,6 +22,7 @@ from app.core.billing import month_hire
 from app.core.tracking import iso
 from app.db import Base, SessionLocal, engine, migrate
 from scripts.seed_business import seed_business
+from scripts.seed_verified import seed_verified
 from app.models import (Assignment, Certificate, Contract, CrewCertificate, CrewMember, DailyReport, Equipment, HireInvoice, MaintenanceJob,
                         ManningRequirement, PositionFix, Timesheet, User, Vessel)
 
@@ -397,5 +399,9 @@ if __name__ == "__main__":
         if session.query(Vessel).count():
             sys.exit("The database already has data. Run with --reset to wipe it and load the demo data again.")
         seed_users(session)
-        seed(session)
-        print(f"Loaded {len(VESSELS)} vessels, {len(CONTRACTS)} contracts and their reports into {config.DATABASE_URL}")
+        if "--demo" in sys.argv:
+            seed(session)
+            print(f"Loaded the invented demo set: {len(VESSELS)} vessels, {len(CONTRACTS)} contracts and their reports into {config.DATABASE_URL}")
+        else:
+            seed_verified(session)
+            print(f"Loaded verified data only into {config.DATABASE_URL}")

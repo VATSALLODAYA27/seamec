@@ -200,7 +200,7 @@ def forecast(session: Session, horizon: int = 12) -> dict:
         return ((hrs["operating"] + hrs["breakdown_paid"]) * c.operating_rate + hrs["standby"] * c.standby_rate) / total
 
     rates = {c.contract_no: earning_per_day(c) for c in contracts}
-    tenders = [(t, tender_model(t, opex.get(t.vessel_id, 0))) for t in session.scalars(select(Tender).where(Tender.status.in_(("DRAFT", "SUBMITTED"))))]
+    tenders = [(t, tender_model(t, opex.get(t.vessel_id) or None)) for t in session.scalars(select(Tender).where(Tender.status.in_(("DRAFT", "SUBMITTED"))))]
     docks = []
     for p in session.scalars(select(DryDockProject).where(DryDockProject.status != "COMPLETED")):
         budget = sum(i.budget for i in session.scalars(select(DryDockItem).where(DryDockItem.project_id == p.id)))

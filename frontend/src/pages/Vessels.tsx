@@ -59,7 +59,7 @@ const columns: ColumnsType<Vessel> = [
   {
     title: 'Last position',
     dataIndex: 'position',
-    render: (p: Vessel['position']) =>
+    render: (p: Vessel['position'], v: Vessel) =>
       p ? (
         <>
           {p.label}
@@ -68,10 +68,10 @@ const columns: ColumnsType<Vessel> = [
           </div>
         </>
       ) : (
-        <Typography.Text type="secondary">Unknown</Typography.Text>
+        <Typography.Text type="secondary">{v.base_port || 'Unknown'}</Typography.Text>
       ),
   },
-  { title: 'Running cost / day', dataIndex: 'daily_opex', align: 'right', render: moneyShort },
+  { title: 'Running cost / day', dataIndex: 'daily_opex', align: 'right', render: (c: number) => (c ? moneyShort(c) : <Typography.Text type="secondary">Not on file</Typography.Text>) },
 ]
 
 export default function Vessels() {

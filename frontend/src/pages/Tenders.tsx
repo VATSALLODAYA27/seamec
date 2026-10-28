@@ -122,8 +122,10 @@ function BidForm({ tender, open, onClose }: { tender: Tender | null; open: boole
           {({ getFieldsValue }) => {
             const v = getFieldsValue() as Partial<BidValues>
             const vessel = vessels.data?.find((x) => x.vessel_id === v.vessel_id)
-            const opex = vessel?.daily_opex ?? Math.min(...(vessels.data ?? []).filter((x) => x.vessel_type === v.vessel_type).map((x) => x.daily_opex), Infinity)
-            const m = preview(v, Number.isFinite(opex) ? opex : 0)
+            // A running cost of 0 is "not on file": no margin can be worked out.
+            const known = (vessels.data ?? []).filter((x) => x.vessel_type === v.vessel_type && x.daily_opex > 0).map((x) => x.daily_opex)
+            const opex = vessel ? vessel.daily_opex : known.length ? Math.min(...known) : 0
+            const m = opex > 0 ? preview(v, opex) : null
             return (
               <Col span={12}>
                 <div className="bid-preview">
@@ -135,7 +137,7 @@ function BidForm({ tender, open, onClose }: { tender: Tender | null; open: boole
                       </Typography.Text>
                     </>
                   ) : (
-                    <span className="muted">Enter the period and rates to see the margin.</span>
+                    <span className="muted">{opex > 0 ? 'Enter the period and rates to see the margin.' : "The vessel's running cost is not on file, so the margin cannot be worked out."}</span>
                   )}
                 </div>
               </Col>
@@ -186,7 +188,7 @@ export default function Tenders({ me }: { me: User }) {
       align: 'right',
       render: (_, t) => (
         <>
-          <Typography.Text strong type={t.model.margin < 0 ? 'danger' : undefined}>{moneyShort(t.model.margin)}</Typography.Text> <span className="muted">{pct(t.model.margin_pct)}</span>
+          <Typography.Text strong type={(t.model.margin ?? 0) < 0 ? 'danger' : undefined}>{moneyShort(t.model.margin)}</Typography.Text> <span className="muted">{pct(t.model.margin_pct)}</span>
           <div className="muted">break-even {moneyShort(t.model.breakeven_rate)}/day</div>
         </>
       ),

@@ -742,6 +742,15 @@ body {
   z-index: 0;
 }
 
+/* The vessel count drawn on a dot shared by several vessels. */
+.map-count {
+  text-align: center;
+  line-height: 22px;
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--ink);
+}
+
 .map-legend {
   display: inline-flex;
   gap: 14px;

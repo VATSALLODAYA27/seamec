@@ -39,10 +39,12 @@ def list_tenders(session: Session = Depends(get_session)):
     vessels = {v.vessel_id: v for v in session.scalars(select(Vessel))}
     tenders = session.scalars(select(Tender).order_by(Tender.due_on.desc())).all()
     # A bid with no vessel named is costed at the cheapest vessel of its type that could do it.
+    # A running cost of 0 means it is not on file, so the bid is not costed.
     cheapest = {}
     for v in vessels.values():
-        cheapest[v.vessel_type] = min(cheapest.get(v.vessel_type, v.daily_opex), v.daily_opex)
-    models = {t.id: tender_model(t, vessels[t.vessel_id].daily_opex if t.vessel_id else cheapest.get(t.vessel_type, 0)) for t in tenders}
+        if v.daily_opex > 0:
+            cheapest[v.vessel_type] = min(cheapest.get(v.vessel_type, v.daily_opex), v.daily_opex)
+    models = {t.id: tender_model(t, (vessels[t.vessel_id].daily_opex or None) if t.vessel_id else cheapest.get(t.vessel_type)) for t in tenders}
     rows = [{**as_dict(t), "vessel_name": vessels[t.vessel_id].name if t.vessel_id else None, "model": models[t.id],
              "vessel_clash": _vessel_clash(session, t) if t.status in ("DRAFT", "SUBMITTED") else None} for t in tenders]
     return {"tenders": rows, "stats": win_loss(tenders, models)}

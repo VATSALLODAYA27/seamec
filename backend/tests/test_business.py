@@ -261,3 +261,26 @@ def test_budget_forecast_and_manual_costs():
     assert saved.json()["saved"] == 1
     other = next(line for line in manager.get("/api/finance/budget", params={"vessel": "SM-II"}).json()["lines"] if line["category"] == "OTHER")
     assert next(m for m in other["months"] if m["period"] == day(0)[:7])["budget"] == 999000
+
+
+def test_verified_data_has_sources_and_invents_nothing():
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from app.core.commercial import tender_model
+    from app.db import Base
+    from app.models import Contract, DailyReport, Tender, Vessel
+    from scripts.seed_verified import seed_verified
+
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    with Session(engine) as session:
+        seed_verified(session)
+        vessels = {v.vessel_id: v for v in session.query(Vessel)}
+        assert "SM-GALLANT" not in vessels and vessels["SM-ANANT"].imo == "9412206"  # Gallant sold Sep 2026; Anant bought
+        assert all(v.daily_opex == 0 for v in vessels.values())  # nothing guessed
+        assert {vid for vid, v in vessels.items() if v.base_lat is not None} == {"SM-PRINCESS", "SM-III", "SM-GLORIOUS", "SM-SWORDFISH"}  # only AIS-named places
+        assert session.query(Contract).count() == 0 and session.query(DailyReport).count() == 0
+        awards = session.query(Tender).all()
+        assert awards and all(t.status == "WON" and "Source" in t.outcome_note for t in awards)
+        assert tender_model(awards[0], None)["margin"] is None  # no running cost on file, no margin

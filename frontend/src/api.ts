@@ -43,7 +43,7 @@ export interface Position {
 
 /** "VSAT · 2 h ago", "Daily report · 1 d ago", "Base port". */
 export function positionNote(p: Position) {
-  if (p.source === 'BASE') return 'Base port, no reported position'
+  if (p.source === 'BASE') return 'Approximate: port area, no exact position fix'
   const source = p.source === 'REPORT' ? 'Daily report (noon)' : p.source
   const age = p.age_hours === null ? '' : p.age_hours < 1 ? 'just now' : p.age_hours < 48 ? `${Math.round(p.age_hours)} h ago` : `${Math.round(p.age_hours / 24)} d ago`
   return `${source} · ${age}${p.stale ? ' · out of date' : ''}`
@@ -58,7 +58,10 @@ export interface Vessel {
   flag: string
   built_year: number | null
   entity: string
+  /** 0 when not on file */
   daily_opex: number
+  /** Home port, or the last area seen on AIS when no coordinates are known */
+  base_port: string
   status: 'AVAILABLE' | 'ON_HIRE' | 'DRY_DOCK'
   contract_no: string | null
   client: string | null
@@ -494,11 +497,12 @@ export interface TenderModel {
   days: number
   day_rate: number
   revenue: number
-  cost: number
-  margin: number
+  /** null when the vessel's running cost is not on file */
+  cost: number | null
+  margin: number | null
   margin_pct: number | null
   breakeven_rate: number | null
-  expected_margin: number
+  expected_margin: number | null
 }
 
 export interface Tender {

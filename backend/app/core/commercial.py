@@ -12,12 +12,16 @@ from datetime import date, datetime, timedelta
 OFF_HIRE_REASONS = {"BREAKDOWN": True, "MAINTENANCE": True, "CREW": False, "DOCUMENTS": False, "OTHER": False}
 
 
-def tender_model(t, daily_opex: float) -> dict:
+def tender_model(t, daily_opex: float | None) -> dict:
+    """`daily_opex` None means the vessel's running cost is not on file: revenue only, no margin."""
     days = (date.fromisoformat(t.end_date) - date.fromisoformat(t.start_date)).days + 1
     share = t.operating_share
     day_rate = share * t.operating_rate + (1 - share) * t.standby_rate
     fees = t.mob_fee + t.demob_fee
     revenue = days * day_rate + fees
+    if daily_opex is None:
+        return {"days": days, "day_rate": round(day_rate, 2), "revenue": round(revenue, 2), "cost": None, "margin": None, "margin_pct": None,
+                "breakeven_rate": None, "expected_margin": None}
     cost = days * (daily_opex + t.extra_daily_cost) + t.mob_cost
     margin = revenue - cost
     breakeven = (cost - fees - days * (1 - share) * t.standby_rate) / (days * share) if share > 0 else None
