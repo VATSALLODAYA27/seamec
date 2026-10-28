@@ -487,3 +487,49 @@ class BudgetIn(BaseModel):
 
 class BudgetBatchIn(BaseModel):
     rows: list[BudgetIn] = Field(min_length=1, max_length=2000)
+
+
+# --- Ship security ---
+
+
+class CameraIn(BaseModel):
+    vessel_id: str
+    name: str = Field(min_length=2, max_length=80)
+    kind: Literal["FIXED", "PTZ", "THERMAL"] = "FIXED"
+    # Only an https address, so a link can never run script in MARIS.
+    view_url: str = Field(default="", max_length=300, pattern=r"^$|^https://[^\s\"'<>]+$")
+    note: str = Field(default="", max_length=300)
+
+
+class CameraCheckIn(BaseModel):
+    status: Literal["WORKING", "FAULT", "OFFLINE"]
+    on: str = Field(pattern=ISO_DATE)
+    note: str = Field(default="", max_length=300)
+
+
+class IncidentIn(BaseModel):
+    vessel_id: str
+    happened_at: str = Field(pattern=MINUTE)
+    kind: Literal["UNAUTHORISED_ACCESS", "STOWAWAY", "THEFT", "SUSPICIOUS_APPROACH", "PIRACY", "CYBER", "OTHER"]
+    severity: Literal["LOW", "MEDIUM", "HIGH"] = "LOW"
+    description: str = Field(min_length=5, max_length=2000)
+    action_taken: str = Field(default="", max_length=2000)
+    reported_to_authorities: bool = False
+    camera_id: int | None = None
+
+
+class IncidentCloseIn(BaseModel):
+    note: str = Field(min_length=3, max_length=1000)
+
+
+class DrillIn(BaseModel):
+    vessel_id: str
+    kind: Literal["DRILL", "EXERCISE"]
+    on_date: str = Field(pattern=ISO_DATE)
+    scenario: str = Field(min_length=3, max_length=200)
+    note: str = Field(default="", max_length=500)
+
+
+class SecurityLevelIn(BaseModel):
+    level: Literal[1, 2, 3]
+    sso: str = Field(default="", max_length=80)

@@ -7,6 +7,7 @@ import {
   ExclamationCircleFilled,
   FileTextOutlined,
   InboxOutlined,
+  InfoCircleOutlined,
   MinusCircleOutlined,
   SendOutlined,
   StopFilled,
@@ -107,6 +108,25 @@ const STATES: Record<string, Record<string, Spec>> = {
     IN_FORCE: { label: 'In force', color: 'success', icon: <CheckCircleFilled /> },
     EXPIRING: { label: 'Expiring', color: 'warning', icon: <ExclamationCircleFilled /> },
     EXPIRED: { label: 'Expired', color: 'error', icon: <StopFilled /> },
+  },
+  camera: {
+    WORKING: { label: 'Working', color: 'success', icon: <CheckCircleFilled /> },
+    FAULT: { label: 'Fault', color: 'warning', icon: <ExclamationCircleFilled /> },
+    OFFLINE: { label: 'Offline', color: 'error', icon: <StopFilled /> },
+  },
+  incident: {
+    OPEN: { label: 'Open', color: 'warning', icon: <ClockCircleOutlined /> },
+    CLOSED: { label: 'Closed', icon: <CheckCircleFilled /> },
+  },
+  severity: {
+    LOW: { label: 'Low', icon: <InfoCircleOutlined /> },
+    MEDIUM: { label: 'Medium', color: 'warning', icon: <ExclamationCircleFilled /> },
+    HIGH: { label: 'High', color: 'error', icon: <StopFilled /> },
+  },
+  due: {
+    OK: { label: 'In date', color: 'success', icon: <CheckCircleFilled /> },
+    DUE_SOON: { label: 'Due soon', color: 'warning', icon: <ClockCircleOutlined /> },
+    OVERDUE: { label: 'Overdue', color: 'error', icon: <StopFilled /> },
   },
   insclaim: {
     NOTIFIED: { label: 'Notified', color: 'warning', icon: <ClockCircleOutlined /> },

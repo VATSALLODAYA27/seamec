@@ -20,6 +20,7 @@ const Finance = lazy(() => import('./pages/Finance'))
 const Insurance = lazy(() => import('./pages/Insurance'))
 const OffHire = lazy(() => import('./pages/OffHire'))
 const PortCalls = lazy(() => import('./pages/PortCalls'))
+const Security = lazy(() => import('./pages/Security'))
 const Supply = lazy(() => import('./pages/Supply'))
 const Tenders = lazy(() => import('./pages/Tenders'))
 const Invoices = lazy(() => import('./pages/Invoices'))
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="insurance" element={<Insurance me={me.data} />} />
         <Route path="off-hire" element={<OffHire me={me.data} />} />
         <Route path="port-calls" element={<PortCalls me={me.data} />} />
+        <Route path="security" element={<Security me={me.data} />} />
         <Route path="supply" element={<Supply me={me.data} />} />
         <Route path="tenders" element={<Tenders me={me.data} />} />
         <Route path="finance" element={can.manage(me.data) ? <Finance /> : <Result status="403" title="Managers only" />} />

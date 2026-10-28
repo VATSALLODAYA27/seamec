@@ -12,7 +12,7 @@ from ..core.finance import pnl
 from ..core.supply import critical_spares
 from ..db import get_session
 from ..models import (AuditEntry, Certificate, Contract, DailyReport, HireInvoice, InsurancePolicy, OffHireEvent, PerformanceClaim, PortCall,
-                      PurchaseOrder, SpareRequest, Tender, Vessel)
+                      PurchaseOrder, SecurityCamera, SecurityIncident, SpareRequest, Tender, Vessel)
 from .insurance import cover_gaps
 from .insurance import expiring as insurance_expiring
 from .fleet import ATTENTION, INVALID, cert_out, days_left, today
@@ -98,6 +98,8 @@ def attention(session: Session, vessels: list[Vessel]) -> list[dict]:
         ("warning", "Vessels off hire now", count(select(OffHireEvent).where(OffHireEvent.status == "OPEN")), "/off-hire"),
         ("warning", "Charterer claims awaiting our answer", count(select(PerformanceClaim).where(PerformanceClaim.status == "OPEN")), "/off-hire?tab=claims"),
         ("warning", "Jobs waiting for a spare", count(select(SpareRequest.job_id).where(SpareRequest.status == "WAITING").distinct()), "/maintenance"),
+        ("error", "Open high-severity security incidents", count(select(SecurityIncident).where(SecurityIncident.status == "OPEN", SecurityIncident.severity == "HIGH")), "/security?tab=incidents"),
+        ("warning", "Security cameras not working", count(select(SecurityCamera).where(SecurityCamera.status != "WORKING")), "/security?tab=cameras"),
         ("info", "Purchase orders to approve", count(select(PurchaseOrder).where(PurchaseOrder.status == "DRAFT")), "/supply?tab=orders"),
         ("info", "Port calls waiting for the final account", count(select(PortCall).where(PortCall.status == "SAILED")), "/port-calls"),
         ("info", "Bids due in the next 14 days", count(select(Tender).where(Tender.status == "DRAFT", Tender.due_on >= now, Tender.due_on <= add_days(now, 14))), "/tenders"),

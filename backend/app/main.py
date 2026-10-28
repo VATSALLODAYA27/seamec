@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import config
 from .api import (assistant, auth, billing, client, commercial, dashboard, documents, drydock, finance, fleet, fleetops, insurance, ops,
-                  ports, positions, supply)
+                  ports, positions, security, supply)
 from .db import migrate
 
 
@@ -20,7 +20,7 @@ app = FastAPI(title="MARIS: offshore fleet ERP for SEAMEC", lifespan=lifespan,
               description="Fleet, contracts, daily reports, billing, maintenance, crew, tenders, supply, port calls, dry docks, insurance and finance. "
                           "All data is representative.")
 for module in (auth, fleet, ops, billing, dashboard, assistant, positions, fleetops, client, commercial, documents, supply, ports, drydock,
-               insurance, finance):
+               insurance, finance, security):
     app.include_router(module.router)
 app.include_router(auth.users)
 

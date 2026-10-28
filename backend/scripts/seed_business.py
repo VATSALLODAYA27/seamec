@@ -13,7 +13,8 @@ from app.core.billing import month_days, months_between
 from app.core.finance import contract_on
 from app.models import (SHORE, Budget, Contract, CostEntry, DailyReport, DisbursementLine, Document, DryDockItem, DryDockProject, Equipment,
                         InsuranceClaim, InsurancePolicy, MaintenanceJob, OffHireEvent, Part, PerformanceClaim, POLine, PortCall, PurchaseOrder,
-                        SpareRequest, StockItem, StockMove, Tender, Vendor, Vessel, YardQuote)
+                        SecurityCamera, SecurityDrill, SecurityIncident, SpareRequest, StockItem, StockMove, Tender, Vendor, Vessel,
+                        VesselSecurity, YardQuote)
 
 TODAY = date.today()
 L, CR = 100_000, 10_000_000
@@ -344,7 +345,27 @@ def seed_business(session, rng: random.Random) -> None:
     if docked[:4] == str(TODAY.year):
         cost("SM-II", docked, "DRYDOCK", 3.2 * CR, "Intermediate docking (history)", "DRYDOCK", "history")
 
-    fleet_premium_per_vessel = (pi.premium + 45 * L) / len(vessels) / 12
+    # ---- Ship security: cameras, drills, an incident or two, security levels ----
+    for vid, v in vessels.items():
+        places = ["Gangway", "Bridge", "Engine room"] + (["Dive control", "Moon pool"] if v.vessel_type == "DSV" else [])
+        for place in places:
+            broken = (vid, place) == ("SM-PALADIN", "Gangway")  # set case: a gangway camera with a fault
+            session.add(SecurityCamera(vessel_id=vid, name=place, kind="PTZ" if place == "Gangway" else "FIXED", status="FAULT" if broken else "WORKING",
+                                       checked_on=d(-rng.randint(1, 20)), note="No picture since power surge" if broken else ""))
+        # Set case: SEAMEC Agastya's last drill was 4 months ago, so it is overdue.
+        session.add(SecurityDrill(vessel_id=vid, kind="DRILL", on_date=d(-120 if vid == "SM-AGASTYA" else -rng.randint(10, 80)),
+                                  scenario=rng.choice(["Unauthorised boarding", "Stowaway search", "Access control at gangway"]), by="ops"))
+        session.add(SecurityDrill(vessel_id=vid, kind="EXERCISE", on_date=d(-rng.randint(60, 300)), scenario="Piracy approach, with company security officer", by="ops"))
+        session.add(VesselSecurity(vessel_id=vid, level=1, sso=f"Chief Officer, {v.name}", set_on=d(-200), set_by="manager"))
+    session.get(VesselSecurity, "SM-SWORDFISH").level = 2  # demo: heightened level while working in the Gulf
+    session.add(SecurityIncident(vessel_id="SM-PRINCESS", happened_at=f"{d(-5)}T02:40", kind="SUSPICIOUS_APPROACH", severity="MEDIUM",
+                                 description="Unlit fishing craft approached to 0.5 nm at night; turned away after searchlight and VHF call",
+                                 action_taken="Security level watch doubled; reported to MRCC Mumbai", reported_to_authorities=True, logged_by="ops"))
+    session.add(SecurityIncident(vessel_id="SM-GLORIOUS", happened_at=f"{d(-40)}T15:10", kind="THEFT", severity="LOW",
+                                 description="Mooring rope missing from aft store", action_taken="Store locked; access log checked", status="CLOSED",
+                                 logged_by="ops", closed_by="manager", closed_note="Rope found mislaid in forward store"))
+
+    fleet_premium_per_vessel =(pi.premium + 45 * L) / len(vessels) / 12
     dock_months = {"SM-III": {TODAY.isoformat()[:7]: 2.3 * CR}, "SM-VALARCHI": {d(15)[:7]: 0.9 * CR}, "SM-PALADIN": {d(85)[:7]: 2.2 * CR}}
     for vid, v in vessels.items():
         for m in months_between(f"{TODAY.year}-01", f"{TODAY.year}-12"):

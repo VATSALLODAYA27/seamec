@@ -912,3 +912,78 @@ export const putJson = <T>(path: string, body: unknown) => api<T>(path, { method
 
 /** "YYYY-MM-DD" from a date picker value. */
 export const ymd = (d: { format: (f: string) => string } | null | undefined) => (d ? d.format('YYYY-MM-DD') : null)
+
+// ---- Ship security (ISPS): cameras, incidents, drills, security level ----
+
+export interface DueState {
+  last: string | null
+  due: string | null
+  state: 'OK' | 'DUE_SOON' | 'OVERDUE'
+}
+
+export interface VesselSecurityRow {
+  vessel_id: string
+  name: string
+  level: 1 | 2 | 3
+  sso: string
+  set_on: string
+  drill: DueState
+  exercise: DueState
+  cameras: number
+  cameras_down: string[]
+  open_incidents: number
+  open_high: number
+}
+
+export interface CameraRow {
+  id: number
+  vessel_id: string
+  vessel_name: string
+  name: string
+  kind: 'FIXED' | 'PTZ' | 'THERMAL'
+  status: 'WORKING' | 'FAULT' | 'OFFLINE'
+  view_url: string
+  checked_on: string | null
+  note: string
+}
+
+export interface IncidentRow {
+  id: number
+  vessel_id: string
+  vessel_name: string
+  happened_at: string
+  kind: 'UNAUTHORISED_ACCESS' | 'STOWAWAY' | 'THEFT' | 'SUSPICIOUS_APPROACH' | 'PIRACY' | 'CYBER' | 'OTHER'
+  severity: 'LOW' | 'MEDIUM' | 'HIGH'
+  description: string
+  action_taken: string
+  reported_to_authorities: boolean
+  camera_id: number | null
+  camera_name: string | null
+  status: 'OPEN' | 'CLOSED'
+  logged_by: string
+  closed_note: string
+}
+
+export interface DrillRow {
+  id: number
+  vessel_id: string
+  vessel_name: string
+  kind: 'DRILL' | 'EXERCISE'
+  on_date: string
+  scenario: string
+  note: string
+  by: string
+}
+
+export const INCIDENT_KINDS: Record<IncidentRow['kind'], string> = {
+  UNAUTHORISED_ACCESS: 'Unauthorised access',
+  STOWAWAY: 'Stowaway',
+  THEFT: 'Theft',
+  SUSPICIOUS_APPROACH: 'Suspicious approach',
+  PIRACY: 'Piracy / armed robbery',
+  CYBER: 'Cyber security',
+  OTHER: 'Other',
+}
+
+export const useSecurity = () =>
+  useQuery({ queryKey: ['security'], queryFn: () => api<{ vessels: VesselSecurityRow[]; cameras: CameraRow[]; incidents: IncidentRow[]; drills: DrillRow[] }>('/security') })

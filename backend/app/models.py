@@ -262,6 +262,63 @@ class Timesheet(Base):
 # --- Automatic positions ---
 
 
+# --- Ship security (ISPS Code): cameras, incidents, drills, security level ---
+
+
+class VesselSecurity(Base):
+    """A vessel's ISPS security level (1 normal, 2 heightened, 3 exceptional) and its ship security officer."""
+
+    __tablename__ = "vessel_security"
+    vessel_id: Mapped[str] = mapped_column(ForeignKey("vessels.vessel_id"), primary_key=True)
+    level: Mapped[int] = mapped_column(default=1)
+    sso: Mapped[str] = mapped_column(default="")  # ship security officer
+    set_on: Mapped[str] = mapped_column(default="")
+    set_by: Mapped[str] = mapped_column(default="")
+
+
+class SecurityCamera(Base):
+    __tablename__ = "security_cameras"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vessel_id: Mapped[str] = mapped_column(ForeignKey("vessels.vessel_id"), index=True)
+    name: Mapped[str]  # where it looks: gangway, bridge, engine room, helideck, dive control ...
+    kind: Mapped[str] = mapped_column(default="FIXED")  # FIXED, PTZ, THERMAL
+    status: Mapped[str] = mapped_column(default="WORKING")  # WORKING, FAULT, OFFLINE
+    view_url: Mapped[str] = mapped_column(default="")  # the camera's or recorder's own web view (https only)
+    checked_on: Mapped[str | None] = mapped_column(default=None)
+    note: Mapped[str] = mapped_column(default="")
+
+
+class SecurityIncident(Base):
+    __tablename__ = "security_incidents"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vessel_id: Mapped[str] = mapped_column(ForeignKey("vessels.vessel_id"), index=True)
+    happened_at: Mapped[str]  # "YYYY-MM-DDTHH:MM", vessel time
+    kind: Mapped[str]  # UNAUTHORISED_ACCESS, STOWAWAY, THEFT, SUSPICIOUS_APPROACH, PIRACY, CYBER, OTHER
+    severity: Mapped[str] = mapped_column(default="LOW")  # LOW, MEDIUM, HIGH
+    description: Mapped[str]
+    action_taken: Mapped[str] = mapped_column(default="")
+    reported_to_authorities: Mapped[bool] = mapped_column(default=False)
+    camera_id: Mapped[int | None] = mapped_column(ForeignKey("security_cameras.id"), default=None)  # footage, if any
+    status: Mapped[str] = mapped_column(default="OPEN")  # OPEN, CLOSED
+    logged_by: Mapped[str] = mapped_column(default="")
+    closed_by: Mapped[str | None] = mapped_column(default=None)
+    closed_note: Mapped[str] = mapped_column(default="")
+
+
+class SecurityDrill(Base):
+    """A security drill (ISPS Code B/13.6: at least every 3 months) or exercise (B/13.7: at least once each
+    calendar year, no more than 18 months apart)."""
+
+    __tablename__ = "security_drills"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vessel_id: Mapped[str] = mapped_column(ForeignKey("vessels.vessel_id"), index=True)
+    kind: Mapped[str]  # DRILL or EXERCISE
+    on_date: Mapped[str]
+    scenario: Mapped[str]
+    note: Mapped[str] = mapped_column(default="")
+    by: Mapped[str] = mapped_column(default="")
+
+
 class FeedKey(Base):
     """The key one vessel's onboard VSAT gateway uses to post its positions. Only the SHA-256 is kept, and a key
     works for its own vessel only. Issued with scripts/feed_key.py."""

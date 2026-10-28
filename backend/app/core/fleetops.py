@@ -22,6 +22,7 @@ from ..api.fleet import INVALID, add_months, cert_out
 from ..api.insurance import cover_gaps
 from ..models import (Assignment, Certificate, Contract, CrewCertificate, CrewMember, DryDockProject, Equipment, InsurancePolicy, MaintenanceJob,
                       ManningRequirement, Vendor, Vessel, YardQuote)
+from .security import security_warnings
 from .supply import critical_spares, waiting_by_job
 
 DUE_SOON_DAYS = 14
@@ -201,6 +202,7 @@ def readiness(session: Session, vessel: Vessel) -> dict:
 
     missing, lapsing = cover_gaps(session.scalars(select(InsurancePolicy)).all(), vessel.vessel_id)
     check("Insurance (hull and machinery, P&I)", missing, lapsing)
+    check("Ship security (ISPS)", [], security_warnings(session, vessel))
 
     blocking = [c for c in checks if not c["ok"]]
     return {"vessel_id": vessel.vessel_id, "name": vessel.name, "ready": not blocking, "blocking": len(blocking),

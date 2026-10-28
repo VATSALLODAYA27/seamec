@@ -284,3 +284,52 @@ def test_verified_data_has_sources_and_invents_nothing():
         awards = session.query(Tender).all()
         assert awards and all(t.status == "WON" and "Source" in t.outcome_note for t in awards)
         assert tender_model(awards[0], None)["margin"] is None  # no running cost on file, no margin
+
+
+# ---------------- Ship security ----------------
+
+
+def test_isps_drill_and_exercise_due_dates():
+    from datetime import date
+
+    from app.core.security import drill_due
+
+    drills = [NS(kind="DRILL", on_date="2026-06-10"), NS(kind="EXERCISE", on_date="2025-03-20")]
+    out = drill_due(drills, date(2026, 10, 28))
+    assert out["drill"] == {"last": "2026-06-10", "due": "2026-09-10", "state": "OVERDUE"}  # every 3 months
+    assert out["exercise"]["due"] == "2026-09-20"  # 18 months comes before the end of the next year
+    assert drill_due([NS(kind="EXERCISE", on_date="2026-02-01")], date(2026, 10, 28))["exercise"]["due"] == "2027-08-01"
+    assert drill_due([], date(2026, 10, 28))["drill"]["state"] == "OVERDUE"  # never held counts as overdue
+
+
+def test_security_cameras_incidents_and_readiness():
+    ops, manager = client_as("ops"), client_as("manager")
+    sec = ops.get("/api/security").json()
+    paladin = next(v for v in sec["vessels"] if v["vessel_id"] == "SM-PALADIN")
+    assert paladin["cameras_down"] == ["Gangway"]
+    assert "Cameras not working: Gangway" in warnings(ops.get("/api/readiness/SM-PALADIN").json())
+    assert "Security drill (every 3 months): overdue" in warnings(ops.get("/api/readiness/SM-AGASTYA").json())
+
+    camera = {"vessel_id": "SM-DIAMOND", "name": "Helideck", "view_url": "javascript:alert(1)"}
+    assert ops.post("/api/security/cameras", json=camera).status_code == 422  # only an https link
+    cam = ops.post("/api/security/cameras", json={**camera, "view_url": "https://nvr.example.com/cam/4"}).json()
+    assert ops.post(f"/api/security/cameras/{cam['id']}/check", json={"status": "OFFLINE", "on": day(0)}).json()["status"] == "OFFLINE"
+    assert "Helideck" in warnings(ops.get("/api/readiness/SM-DIAMOND").json())
+
+    incident = {"vessel_id": "SM-DIAMOND", "happened_at": f"{day(-1)}T23:15", "kind": "STOWAWAY", "severity": "HIGH",
+                "description": "Person found hiding in the rope store", "camera_id": cam["id"]}
+    assert ops.post("/api/security/incidents", json={**incident, "camera_id": next(c["id"] for c in sec["cameras"] if c["vessel_id"] == "SM-II")}).status_code == 422
+    iid = ops.post("/api/security/incidents", json=incident).json()["id"]
+    assert "1 open high-severity security incident" in warnings(ops.get("/api/readiness/SM-DIAMOND").json())
+    assert any(a["label"] == "Open high-severity security incidents" for a in manager.get("/api/dashboard").json()["attention"])
+    assert ops.post(f"/api/security/incidents/{iid}/close", json={"note": "Handed to port police"}).status_code == 403
+    assert manager.post(f"/api/security/incidents/{iid}/close", json={"note": "Handed to port police"}).json()["status"] == "CLOSED"
+    assert ops.delete(f"/api/security/cameras/{cam['id']}").status_code == 403
+    assert manager.delete(f"/api/security/cameras/{cam['id']}").status_code == 409  # its footage is on an incident
+
+    assert ops.post("/api/security/drills", json={"vessel_id": "SM-AGASTYA", "kind": "DRILL", "on_date": day(1), "scenario": "Bomb threat"}).status_code == 422
+    ops.post("/api/security/drills", json={"vessel_id": "SM-AGASTYA", "kind": "DRILL", "on_date": day(0), "scenario": "Bomb threat"})
+    assert "Security drill" not in warnings(ops.get("/api/readiness/SM-AGASTYA").json())
+    assert ops.put("/api/security/vessels/SM-AGASTYA", json={"level": 2}).status_code == 403
+    manager.put("/api/security/vessels/SM-AGASTYA", json={"level": 2, "sso": "A. Menon"})
+    assert "Security level 2 in force" in warnings(ops.get("/api/readiness/SM-AGASTYA").json())

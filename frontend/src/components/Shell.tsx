@@ -7,6 +7,7 @@ import {
   SafetyOutlined,
   ShoppingCartOutlined,
   TrophyOutlined,
+  VideoCameraOutlined,
   CalendarOutlined,
   CloudUploadOutlined,
   CompassOutlined,
@@ -86,6 +87,7 @@ export default function Shell({ me }: { me: User }) {
       { key: '/crew', label: 'Crew', icon: <UsergroupAddOutlined /> },
       { key: '/drydock', label: 'Dry dock', icon: <BuildOutlined /> },
       { key: '/insurance', label: 'Insurance', icon: <SafetyOutlined /> },
+      { key: '/security', label: 'Security', icon: <VideoCameraOutlined /> },
     ]),
     group('Operations', [
       { key: '/reports', label: 'Daily reports', icon: <FileTextOutlined /> },
