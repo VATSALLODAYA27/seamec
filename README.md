@@ -99,8 +99,10 @@ anyone else uses the system.**
 The map shows the newest of three sources; a position older than 36 hours is marked out of date.
 
 1. **Daily report:** the noon latitude and longitude typed in by the vessel (or filled from the device's GPS).
-2. **VSAT:** an onboard GPS/VSAT gateway posts positions to `POST /api/positions/feed` with an `X-Feed-Key` header.
-   Off until `MARIS_FEED_KEY` is set in `backend/.env`.
+2. **VSAT:** an onboard GPS/VSAT gateway posts positions to `POST /api/positions/feed` with its vessel's key in the
+   `X-Feed-Key` header. Each vessel has its own key, which works for that vessel only: issue it with
+   `python -m scripts.feed_key SM-PRINCESS` from `backend/` (shown once; `--revoke` withdraws it). The feed is off until
+   the first key is issued. Resends are safe: a position within 5 minutes of one already stored is skipped.
 3. **AIS:** with a free [aisstream.io](https://aisstream.io) key in `backend/.env` (`AISSTREAM_API_KEY`), run
    `python -m scripts.ais_listener` from `backend/`. Shore-based AIS reaches roughly 30 nautical miles, so vessels
    far offshore may only appear through reports or VSAT.

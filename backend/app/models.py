@@ -262,6 +262,16 @@ class Timesheet(Base):
 # --- Automatic positions ---
 
 
+class FeedKey(Base):
+    """The key one vessel's onboard VSAT gateway uses to post its positions. Only the SHA-256 is kept, and a key
+    works for its own vessel only. Issued with scripts/feed_key.py."""
+
+    __tablename__ = "feed_keys"
+    vessel_id: Mapped[str] = mapped_column(ForeignKey("vessels.vessel_id"), primary_key=True)
+    digest: Mapped[str] = mapped_column(unique=True)
+    issued_at: Mapped[str] = mapped_column(default=stamp)
+
+
 class PositionFix(Base):
     """A position sent automatically: from the vessel's own GPS over VSAT, or picked up from AIS."""
 

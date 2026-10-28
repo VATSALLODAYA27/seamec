@@ -18,8 +18,7 @@ FRONTEND_DIST = BACKEND_DIR.parent / "frontend" / "dist"
 # Set SEAMEC_COOKIE_SECURE=1 once the tool is served over HTTPS.
 COOKIE_SECURE = os.environ.get("SEAMEC_COOKIE_SECURE") == "1"
 
-# Automatic positions. MARIS_FEED_KEY switches on the feed endpoint that vessels' VSAT/GPS gateways post to;
-# AISSTREAM_API_KEY is used by scripts/ais_listener.py. Neither is set by default.
-FEED_KEY = os.environ.get("MARIS_FEED_KEY", "")
+# Automatic positions. AISSTREAM_API_KEY is used by scripts/ais_listener.py; not set by default. The VSAT feed uses
+# one key per vessel, issued with scripts/feed_key.py and kept (hashed) in the database.
 AISSTREAM_API_KEY = os.environ.get("AISSTREAM_API_KEY", "")
 POSITION_STALE_HOURS = 36  # a vessel not heard from for longer is shown as stale

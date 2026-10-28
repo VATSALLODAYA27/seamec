@@ -155,18 +155,36 @@ def test_ais_messages_are_read_as_documented_and_bad_values_dropped():
     assert parse_aisstream({"MessageType": "ShipStaticData", "Message": {}}) is None
 
 
-def test_position_feed_needs_the_key_and_stores_by_mmsi(monkeypatch):
-    from app import config
+def test_position_feed_per_vessel_key_resends_and_frequency():
+    from app.core.tracking import iso, utc_now
+    from app.db import SessionLocal
+    from scripts.feed_key import issue
 
-    fix = {"fixes": [{"mmsi": "419227000", "lat": 18.99, "lon": 72.11, "source": "VSAT"}, {"mmsi": "999999999", "lat": 1, "lon": 1}]}
-    monkeypatch.setattr(config, "FEED_KEY", "")
-    assert TestClient(app).post("/api/positions/feed", json=fix).status_code == 503
-    monkeypatch.setattr(config, "FEED_KEY", "test-feed-key")
-    assert TestClient(app).post("/api/positions/feed", json=fix, headers={"X-Feed-Key": "wrong"}).status_code == 401
-    out = TestClient(app).post("/api/positions/feed", json=fix, headers={"X-Feed-Key": "test-feed-key"}).json()
-    assert out["stored"] == 1 and "unknown vessel" in out["skipped"][0]["reason"]
+    def post(body, key=""):
+        return TestClient(app).post("/api/positions/feed", json=body, headers={"X-Feed-Key": key} if key else {})
+
+    def at(minutes_ago):
+        return iso(utc_now() - timedelta(minutes=minutes_ago))
+
+    fix = {"mmsi": "419227000", "lat": 18.99, "lon": 72.11, "at": at(60)}
+    assert post({"fixes": [fix]}).status_code == 503  # no key issued yet: the feed is off
+    with SessionLocal() as session:
+        key = issue(session, "SM-II")
+    assert post({"fixes": [fix]}, "wrong").status_code == 401
+    assert post({"fixes": [{**fix, "source": "AIS"}]}, key).status_code == 422  # the feed is VSAT only
+
+    out = post({"fixes": [fix, {**fix, "mmsi": "419603000"}, {**fix, "at": at(58)}, {**fix, "at": at(50)}]}, key).json()
+    assert out["stored"] == 2  # 60 and 50 minutes ago
+    assert "SEAMEC II only" in out["skipped"][0]["reason"] and "within 5 minutes" in out["skipped"][1]["reason"]
+    resent = post({"fixes": [fix]}, key).json()  # the same batch again after a dropped link
+    assert resent["stored"] == 0 and "within 5 minutes" in resent["skipped"][0]["reason"]
+
+    assert post({"fixes": [{"lat": 18.98, "lon": 72.12}]}, key).json()["stored"] == 1  # no vessel named: the key's vessel, now
     seamec_ii = {v["vessel_id"]: v for v in client_as("ops").get("/api/vessels").json()}["SM-II"]["position"]
-    assert (seamec_ii["source"], seamec_ii["lat"], seamec_ii["stale"]) == ("VSAT", 18.99, False)
+    assert (seamec_ii["source"], seamec_ii["lat"], seamec_ii["stale"]) == ("VSAT", 18.98, False)
+    with SessionLocal() as session:
+        issue(session, "SM-II")  # a new key replaces the old one
+    assert post({"fixes": [{"lat": 18.97, "lon": 72.13}]}, key).status_code == 401
 
 
 def test_certificate_survey_endorsement_clears_the_warning():

@@ -116,10 +116,11 @@ class EndorseIn(BaseModel):
     on: str = Field(pattern=ISO_DATE)
 
 
-# --- Automatic positions (VSAT / AIS feed) ---
+# --- Automatic positions (the VSAT feed) ---
 
 
 class FixIn(BaseModel):
+    # The feed key says which vessel is posting; vessel_id or MMSI, when given, must be that vessel.
     vessel_id: str | None = None
     mmsi: str | None = Field(default=None, pattern=r"^\d{9}$")
     lat: float = Field(ge=-90, le=90)
@@ -127,13 +128,7 @@ class FixIn(BaseModel):
     at: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?Z$")  # UTC; now when left out
     sog: float | None = Field(default=None, ge=0, le=60)
     cog: float | None = Field(default=None, ge=0, le=360)
-    source: Literal["VSAT", "AIS"] = "VSAT"
-
-    @model_validator(mode="after")
-    def names_a_vessel(self):
-        if not self.vessel_id and not self.mmsi:
-            raise ValueError("Give the vessel_id or the MMSI.")
-        return self
+    source: Literal["VSAT"] = "VSAT"  # AIS positions come only from the AIS listener, never through the feed
 
 
 class FeedIn(BaseModel):
